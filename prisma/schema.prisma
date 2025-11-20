@@ -1,4 +1,4 @@
-// This is your Prisma schema file
+// Prisma schema for Simplicate Automation System
 // Learn more: https://pris.ly/d/prisma-schema
 
 generator client {
@@ -11,25 +11,414 @@ datasource db {
   directUrl = env("DIRECT_URL")
 }
 
-// Example models - customize as needed
-model User {
-  id        String   @id @default(cuid())
-  email     String   @unique
-  name      String?
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-  posts     Post[]
+// ==========================================
+// USER & AUTHENTICATION
+// ==========================================
+
+enum UserRole {
+  ADMIN
+  TEAM_MEMBER
 }
 
-model Post {
-  id        String   @id @default(cuid())
-  title     String
-  content   String?
-  published Boolean  @default(false)
-  authorId  String
-  author    User     @relation(fields: [authorId], references: [id], onDelete: Cascade)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+model User {
+  id                    String                 @id @default(cuid())
+  email                 String                 @unique
+  name                  String?
+  role                  UserRole               @default(TEAM_MEMBER)
+  emailVerified         DateTime?
+  image                 String?
+  createdAt             DateTime               @default(now())
+  updatedAt             DateTime               @updatedAt
 
-  @@index([authorId])
+  // Simplicate integration
+  simplicateEmployeeId  String?                @unique
+
+  // Relations
+  accounts              Account[]
+  sessions              Session[]
+  contracts             Contract[]
+  hoursEntries          HoursEntry[]
+  notifications         Notification[]
+  notificationPrefs     NotificationPreference?
+
+  @@index([email])
+  @@index([simplicateEmployeeId])
+}
+
+// NextAuth models
+model Account {
+  id                String  @id @default(cuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String?
+  access_token      String?
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String?
+  session_state     String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+  @@index([userId])
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@unique([identifier, token])
+}
+
+// ==========================================
+// SIMPLICATE ENTITIES
+// ==========================================
+
+enum ProjectStatus {
+  ACTIVE
+  COMPLETED
+  ON_HOLD
+  CANCELLED
+}
+
+model Project {
+  id                  String         @id @default(cuid())
+  simplicateId        String         @unique
+  name                String
+  description         String?
+  status              ProjectStatus  @default(ACTIVE)
+  startDate           DateTime?
+  endDate             DateTime?
+
+  // Project details
+  clientName          String?
+  projectNumber       String?
+
+  // Sync tracking
+  lastSyncedAt        DateTime       @default(now())
+  createdAt           DateTime       @default(now())
+  updatedAt           DateTime       @updatedAt
+
+  // Relations
+  contracts           Contract[]
+  hoursEntries        HoursEntry[]
+  invoices            Invoice[]
+  automationLogs      AutomationLog[]
+
+  @@index([simplicateId])
+  @@index([status])
+}
+
+// ==========================================
+// CONTRACT MANAGEMENT
+// ==========================================
+
+enum ContractStatus {
+  PENDING
+  SENT
+  SIGNED
+  REJECTED
+  EXPIRED
+}
+
+model Contract {
+  id                String         @id @default(cuid())
+  projectId         String
+  userId            String
+
+  // Contract details
+  templateName      String
+  templateUrl       String?
+
+  // Status tracking
+  status            ContractStatus @default(PENDING)
+  sentAt            DateTime?
+  signedAt          DateTime?
+  rejectedAt        DateTime?
+
+  // Document storage
+  signedDocumentUrl String?
+  uploadToken       String?        @unique // Secure token for upload
+
+  // Simplicate integration
+  simplicateDocumentId String?     @unique
+
+  createdAt         DateTime       @default(now())
+  updatedAt         DateTime       @updatedAt
+
+  // Relations
+  project           Project        @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  user              User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([projectId])
+  @@index([userId])
+  @@index([status])
+  @@index([uploadToken])
+}
+
+// ==========================================
+// HOURS TRACKING
+// ==========================================
+
+enum HoursStatus {
+  PENDING
+  SUBMITTED
+  APPROVED
+  REJECTED
+  INVOICED
+}
+
+model HoursEntry {
+  id                String       @id @default(cuid())
+  projectId         String
+  userId            String
+
+  // Hours details
+  hours             Float
+  date              DateTime
+  description       String?
+  hourlyRate        Float?
+
+  // Status
+  status            HoursStatus  @default(PENDING)
+  submittedAt       DateTime?
+  approvedAt        DateTime?
+
+  // Simplicate integration
+  simplicateHoursId String?      @unique
+
+  createdAt         DateTime     @default(now())
+  updatedAt         DateTime     @updatedAt
+
+  // Relations
+  project           Project      @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  user              User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  invoice           Invoice?     @relation(fields: [invoiceId], references: [id])
+  invoiceId         String?
+
+  @@index([projectId])
+  @@index([userId])
+  @@index([status])
+  @@index([date])
+}
+
+// ==========================================
+// INVOICING
+// ==========================================
+
+enum InvoiceStatus {
+  DRAFT
+  PENDING_APPROVAL
+  APPROVED
+  SENT
+  PAID
+  CANCELLED
+}
+
+model Invoice {
+  id                  String         @id @default(cuid())
+  projectId           String
+
+  // Invoice details
+  invoiceNumber       String?        @unique
+  amount              Float
+  description         String?
+
+  // Date tracking
+  periodStart         DateTime
+  periodEnd           DateTime
+  dueDate             DateTime?
+
+  // Status
+  status              InvoiceStatus  @default(DRAFT)
+  approvedAt          DateTime?
+  sentAt              DateTime?
+  paidAt              DateTime?
+
+  // Simplicate integration
+  simplicateInvoiceId String?        @unique
+
+  createdAt           DateTime       @default(now())
+  updatedAt           DateTime       @updatedAt
+
+  // Relations
+  project             Project        @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  hoursEntries        HoursEntry[]
+
+  @@index([projectId])
+  @@index([status])
+  @@index([invoiceNumber])
+}
+
+// ==========================================
+// NOTIFICATIONS
+// ==========================================
+
+enum NotificationType {
+  CONTRACT_ASSIGNED
+  HOURS_REMINDER
+  INVOICE_GENERATED
+  CONTRACT_SIGNED
+  HOURS_APPROVED
+  SYSTEM_ALERT
+}
+
+enum NotificationChannel {
+  EMAIL
+  SLACK
+  IN_APP
+}
+
+model Notification {
+  id          String              @id @default(cuid())
+  userId      String
+
+  // Notification content
+  type        NotificationType
+  title       String
+  message     String
+  actionUrl   String?
+
+  // Delivery
+  channels    NotificationChannel[]
+  sentAt      DateTime?
+  readAt      DateTime?
+
+  // Metadata
+  metadata    Json?
+
+  createdAt   DateTime            @default(now())
+
+  // Relations
+  user        User                @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([type])
+  @@index([readAt])
+}
+
+model NotificationPreference {
+  id                    String    @id @default(cuid())
+  userId                String    @unique
+
+  // Channel preferences
+  emailEnabled          Boolean   @default(true)
+  slackEnabled          Boolean   @default(false)
+  inAppEnabled          Boolean   @default(true)
+
+  // Notification type preferences
+  contractNotifications Boolean   @default(true)
+  hoursReminders        Boolean   @default(true)
+  invoiceNotifications  Boolean   @default(true)
+
+  // Reminder frequency (in days)
+  hoursReminderFrequency Int      @default(7)
+
+  // Slack integration
+  slackUserId           String?
+  slackWebhookUrl       String?
+
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
+
+  // Relations
+  user                  User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+// ==========================================
+// AUTOMATION & LOGGING
+// ==========================================
+
+enum WorkflowType {
+  CONTRACT_DISTRIBUTION
+  HOURS_REMINDER
+  INVOICE_GENERATION
+}
+
+enum AutomationStatus {
+  PENDING
+  RUNNING
+  SUCCESS
+  FAILED
+  RETRYING
+}
+
+model AutomationLog {
+  id            String            @id @default(cuid())
+  projectId     String?
+
+  // Workflow details
+  workflowType  WorkflowType
+  status        AutomationStatus
+
+  // Execution tracking
+  startedAt     DateTime          @default(now())
+  completedAt   DateTime?
+
+  // Error handling
+  error         String?
+  retryCount    Int               @default(0)
+
+  // Metadata
+  metadata      Json?
+
+  // Relations
+  project       Project?          @relation(fields: [projectId], references: [id], onDelete: SetNull)
+
+  @@index([workflowType])
+  @@index([status])
+  @@index([startedAt])
+}
+
+// ==========================================
+// SYSTEM CONFIGURATION
+// ==========================================
+
+model SystemConfig {
+  id                        String   @id @default(cuid())
+  key                       String   @unique
+  value                     String
+  description               String?
+
+  createdAt                 DateTime @default(now())
+  updatedAt                 DateTime @updatedAt
+
+  @@index([key])
+}
+
+// ==========================================
+// WEBHOOK TRACKING
+// ==========================================
+
+model WebhookEvent {
+  id            String   @id @default(cuid())
+
+  // Event details
+  eventType     String
+  payload       Json
+
+  // Processing
+  processed     Boolean  @default(false)
+  processedAt   DateTime?
+  error         String?
+
+  createdAt     DateTime @default(now())
+
+  @@index([eventType])
+  @@index([processed])
+  @@index([createdAt])
 }

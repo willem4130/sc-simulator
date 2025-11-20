@@ -18,6 +18,18 @@ export const env = createEnv({
     SENTRY_ORG: z.string().optional(),
     SENTRY_PROJECT: z.string().optional(),
     SENTRY_AUTH_TOKEN: z.string().optional(),
+    // Simplicate API
+    SIMPLICATE_API_KEY: z.string().optional(),
+    SIMPLICATE_API_SECRET: z.string().optional(),
+    SIMPLICATE_DOMAIN: z.string().optional(),
+    // NextAuth
+    NEXTAUTH_SECRET: z.string().min(32),
+    NEXTAUTH_URL: z.string().url().optional(),
+    // Email (Resend)
+    RESEND_API_KEY: z.string().optional(),
+    EMAIL_FROM: z.string().email().default('noreply@example.com'),
+    // Slack (optional)
+    SLACK_BOT_TOKEN: z.string().optional(),
   },
 
   /**
@@ -46,6 +58,14 @@ export const env = createEnv({
     SENTRY_PROJECT: process.env.SENTRY_PROJECT,
     SENTRY_AUTH_TOKEN: process.env.SENTRY_AUTH_TOKEN,
     NEXT_PUBLIC_SENTRY_DSN: process.env.NEXT_PUBLIC_SENTRY_DSN,
+    SIMPLICATE_API_KEY: process.env.SIMPLICATE_API_KEY,
+    SIMPLICATE_API_SECRET: process.env.SIMPLICATE_API_SECRET,
+    SIMPLICATE_DOMAIN: process.env.SIMPLICATE_DOMAIN,
+    NEXTAUTH_SECRET: process.env.NEXTAUTH_SECRET,
+    NEXTAUTH_URL: process.env.NEXTAUTH_URL,
+    RESEND_API_KEY: process.env.RESEND_API_KEY,
+    EMAIL_FROM: process.env.EMAIL_FROM,
+    SLACK_BOT_TOKEN: process.env.SLACK_BOT_TOKEN,
     // NEXT_PUBLIC_APP_URL: process.env.NEXT_PUBLIC_APP_URL,
   },
 
