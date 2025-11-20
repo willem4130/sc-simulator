@@ -87,7 +87,10 @@ export class SimplicateClient {
   constructor(config?: Partial<SimplicateConfig>) {
     this.apiKey = config?.apiKey || process.env.SIMPLICATE_API_KEY || '';
     this.apiSecret = config?.apiSecret || process.env.SIMPLICATE_API_SECRET || '';
-    this.baseUrl = `https://${config?.domain || process.env.SIMPLICATE_DOMAIN || 'api.simplicate.com'}/api/v2`;
+    const domain = config?.domain || process.env.SIMPLICATE_DOMAIN || 'api.simplicate.com';
+    // Remove https:// if present and ensure proper format
+    const cleanDomain = domain.replace(/^https?:\/\//, '');
+    this.baseUrl = `https://${cleanDomain}/api/v2`;
 
     if (!this.apiKey || !this.apiSecret) {
       console.warn('Simplicate API credentials not configured');
@@ -108,7 +111,8 @@ export class SimplicateClient {
     const response = await fetch(url, {
       ...options,
       headers: {
-        'Authorization': this.getAuthHeader(),
+        'Authentication-Key': this.apiKey,
+        'Authentication-Secret': this.apiSecret,
         'Content-Type': 'application/json',
         ...options.headers,
       },

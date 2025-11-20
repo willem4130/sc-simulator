@@ -11,8 +11,11 @@
  *   npx tsx scripts/test-simplicate.ts
  */
 
+import * as dotenv from 'dotenv';
 import { SimplicateClient } from '../src/lib/simplicate/client';
-import { env } from '../src/env';
+
+// Load environment variables directly
+dotenv.config();
 
 // Color output helpers
 const colors = {
@@ -81,6 +84,9 @@ ${colors.reset}`);
   section('2. API Client Initialization');
   const client = new SimplicateClient();
   success('Client initialized');
+
+  // Debug: Show the API endpoint we're using
+  console.log(`   API Base URL: https://${domain}/api/v2`);
 
   // Step 3: Test API connection with projects
   section('3. Testing API Connection');
