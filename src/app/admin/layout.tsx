@@ -1,5 +1,5 @@
 import Link from 'next/link'
-import { LayoutDashboard, Users, Settings, LogOut } from 'lucide-react'
+import { LayoutDashboard, Users, Settings, LogOut, Workflow } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Separator } from '@/components/ui/separator'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
@@ -17,6 +17,11 @@ const navItems = [
     title: 'Dashboard',
     href: '/admin/dashboard',
     icon: LayoutDashboard,
+  },
+  {
+    title: 'Workflows',
+    href: '/admin/workflows',
+    icon: Workflow,
   },
   {
     title: 'Users',

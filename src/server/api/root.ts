@@ -3,6 +3,7 @@ import { projectsRouter } from '@/server/api/routers/projects'
 import { contractsRouter } from '@/server/api/routers/contracts'
 import { automationRouter } from '@/server/api/routers/automation'
 import { dashboardRouter } from '@/server/api/routers/dashboard'
+import { syncRouter } from '@/server/api/routers/sync'
 
 /**
  * This is the primary router for your server.
@@ -13,6 +14,7 @@ export const appRouter = createTRPCRouter({
   contracts: contractsRouter,
   automation: automationRouter,
   dashboard: dashboardRouter,
+  sync: syncRouter,
 })
 
 // Export type definition of API

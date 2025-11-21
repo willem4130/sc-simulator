@@ -13,9 +13,37 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { Badge } from '@/components/ui/badge'
-import { Bell, Lock, Palette, Globe, Database, Shield } from 'lucide-react'
+import { Bell, Lock, Palette, Globe, Database, Shield, RefreshCw } from 'lucide-react'
+import { api } from '@/trpc/react'
+import { useState } from 'react'
 
 export default function SettingsPage() {
+  const [isSyncing, setIsSyncing] = useState(false)
+  const [syncMessage, setSyncMessage] = useState<string | null>(null)
+
+  const { data: syncStatus, refetch: refetchStatus } = api.sync.getSyncStatus.useQuery()
+  const syncProjects = api.sync.syncProjects.useMutation({
+    onSuccess: (data) => {
+      setIsSyncing(false)
+      setSyncMessage(
+        `✅ Sync complete! Created: ${data.created}, Updated: ${data.updated}, Total: ${data.totalProcessed}`
+      )
+      refetchStatus()
+      setTimeout(() => setSyncMessage(null), 10000)
+    },
+    onError: (error) => {
+      setIsSyncing(false)
+      setSyncMessage(`❌ Sync failed: ${error.message}`)
+      setTimeout(() => setSyncMessage(null), 10000)
+    },
+  })
+
+  const handleSync = () => {
+    setIsSyncing(true)
+    setSyncMessage(null)
+    syncProjects.mutate()
+  }
+
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -65,6 +93,65 @@ export default function SettingsPage() {
             </div>
             <div className="flex justify-end">
               <Button>Save Changes</Button>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Simplicate Sync */}
+        <Card>
+          <CardHeader>
+            <div className="flex items-center gap-2">
+              <RefreshCw className="h-5 w-5" />
+              <CardTitle>Simplicate Sync</CardTitle>
+            </div>
+            <CardDescription>Import projects from Simplicate to your database</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            {syncMessage && (
+              <div className="rounded-lg border bg-muted p-3 text-sm">{syncMessage}</div>
+            )}
+            <div className="flex items-center justify-between rounded-lg border p-4">
+              <div className="space-y-0.5">
+                <Label>Sync Status</Label>
+                {syncStatus?.hasBeenSynced ? (
+                  <p className="text-sm text-muted-foreground">
+                    Last synced:{' '}
+                    {syncStatus.lastSyncedAt
+                      ? new Date(syncStatus.lastSyncedAt).toLocaleString()
+                      : 'Never'}
+                  </p>
+                ) : (
+                  <p className="text-sm text-muted-foreground">No projects synced yet</p>
+                )}
+                <p className="text-sm text-muted-foreground">
+                  Total projects: {syncStatus?.totalProjects || 0}
+                </p>
+              </div>
+              <Button onClick={handleSync} disabled={isSyncing} size="sm">
+                {isSyncing ? (
+                  <>
+                    <RefreshCw className="mr-2 h-4 w-4 animate-spin" />
+                    Syncing...
+                  </>
+                ) : (
+                  <>
+                    <RefreshCw className="mr-2 h-4 w-4" />
+                    Sync Now
+                  </>
+                )}
+              </Button>
+            </div>
+            <Separator />
+            <div className="space-y-2 text-sm text-muted-foreground">
+              <p>
+                <strong>What gets synced:</strong>
+              </p>
+              <ul className="list-inside list-disc space-y-1">
+                <li>Project names and descriptions</li>
+                <li>Client information</li>
+                <li>Project status and dates</li>
+                <li>Project numbers</li>
+              </ul>
             </div>
           </CardContent>
         </Card>
