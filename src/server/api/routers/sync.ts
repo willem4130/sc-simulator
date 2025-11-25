@@ -262,6 +262,88 @@ export const syncRouter = createTRPCRouter({
     }
   }),
 
+  // Sync services (diensten) from Simplicate to local database
+  syncServices: publicProcedure.mutation(async ({ ctx }) => {
+    const client = getSimplicateClient()
+
+    try {
+      const simplicateServices = await client.getServices({ limit: 500 })
+
+      const results = {
+        created: 0,
+        updated: 0,
+        skipped: 0,
+        errors: [] as string[],
+      }
+
+      for (const service of simplicateServices) {
+        try {
+          // Find the project by Simplicate ID
+          const project = await ctx.db.project.findFirst({
+            where: { simplicateId: service.project_id },
+          })
+
+          if (!project) {
+            results.skipped++
+            continue
+          }
+
+          // Calculate total budget from hour_types
+          const budgetHours = service.hour_types?.reduce(
+            (sum, ht) => sum + (ht.budgeted_amount || 0),
+            0
+          ) || null
+
+          // Get default hourly rate from first hour type with a tariff
+          const defaultHourlyRate = service.hour_types?.find(ht => ht.tariff > 0)?.tariff || null
+
+          const serviceData = {
+            projectId: project.id,
+            simplicateServiceId: service.id,
+            name: service.name,
+            status: service.status || 'open',
+            startDate: service.start_date ? new Date(service.start_date) : null,
+            endDate: service.end_date ? new Date(service.end_date) : null,
+            budgetHours,
+            defaultHourlyRate,
+            invoiceMethod: service.invoice_method || null,
+            trackHours: service.track_hours ?? true,
+          }
+
+          // Upsert service
+          const existingService = await ctx.db.projectService.findUnique({
+            where: { simplicateServiceId: service.id },
+          })
+
+          if (existingService) {
+            await ctx.db.projectService.update({
+              where: { id: existingService.id },
+              data: serviceData,
+            })
+            results.updated++
+          } else {
+            await ctx.db.projectService.create({
+              data: serviceData,
+            })
+            results.created++
+          }
+        } catch (error) {
+          const errorMessage = error instanceof Error ? error.message : 'Unknown error'
+          results.errors.push(`Failed to sync service ${service.name}: ${errorMessage}`)
+        }
+      }
+
+      return {
+        success: true,
+        totalProcessed: simplicateServices.length,
+        ...results,
+      }
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error'
+      throw new Error(`Failed to sync services from Simplicate: ${errorMessage}`)
+    }
+  }),
+
   // Sync hours from Simplicate to local database
   syncHours: publicProcedure.mutation(async ({ ctx }) => {
     const client = getSimplicateClient()
@@ -287,8 +369,9 @@ export const syncRouter = createTRPCRouter({
       for (const hours of simplicateHours) {
         try {
           // Find the project by Simplicate ID
+          const projectId = hours.project?.id || hours.project_id
           const project = await ctx.db.project.findFirst({
-            where: { simplicateId: hours.project_id },
+            where: { simplicateId: projectId },
           })
 
           if (!project) {
@@ -297,8 +380,9 @@ export const syncRouter = createTRPCRouter({
           }
 
           // Find the user by Simplicate employee ID
+          const employeeId = hours.employee?.id || hours.employee_id
           const user = await ctx.db.user.findFirst({
-            where: { simplicateEmployeeId: hours.employee_id },
+            where: { simplicateEmployeeId: employeeId },
           })
 
           if (!user) {
@@ -306,14 +390,25 @@ export const syncRouter = createTRPCRouter({
             continue
           }
 
+          // Find the project service (dienst) if available
+          let projectServiceId: string | null = null
+          if (hours.projectservice?.id) {
+            const projectService = await ctx.db.projectService.findUnique({
+              where: { simplicateServiceId: hours.projectservice.id },
+            })
+            projectServiceId = projectService?.id || null
+          }
+
           const hoursData = {
             projectId: project.id,
             userId: user.id,
+            projectServiceId,
             simplicateHoursId: hours.id,
             hours: hours.hours,
             date: new Date(hours.date),
             description: hours.description || null,
-            hourlyRate: hours.hourly_rate || null,
+            hourlyRate: hours.tariff || hours.hourly_rate || null,
+            billable: hours.billable ?? true,
             status: mapHoursStatus(hours.status),
           }
 
@@ -339,6 +434,9 @@ export const syncRouter = createTRPCRouter({
           results.errors.push(`Failed to sync hours ${hours.id}: ${errorMessage}`)
         }
       }
+
+      // Update service used hours after sync
+      await updateServiceUsedHours(ctx.db)
 
       return {
         success: true,
@@ -491,4 +589,27 @@ function mapInvoiceStatus(status?: string): 'DRAFT' | 'PENDING_APPROVAL' | 'APPR
   if (statusLower.includes('cancel')) return 'CANCELLED'
 
   return 'DRAFT' // Default
+}
+
+// Helper function to update usedHours for all project services
+async function updateServiceUsedHours(db: any) {
+  // Get all services
+  const services = await db.projectService.findMany({
+    select: { id: true },
+  })
+
+  // Update each service's usedHours
+  for (const service of services) {
+    const result = await db.hoursEntry.aggregate({
+      where: { projectServiceId: service.id },
+      _sum: { hours: true },
+    })
+
+    await db.projectService.update({
+      where: { id: service.id },
+      data: {
+        usedHours: result._sum.hours || 0,
+      },
+    })
+  }
 }

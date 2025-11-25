@@ -165,9 +165,48 @@ model Project {
   budget              ProjectBudget?
   expenses            Expense[]
   purchasingInvoices  PurchasingInvoice[]
+  services            ProjectService[]
 
   @@index([simplicateId])
   @@index([status])
+}
+
+// ==========================================
+// PROJECT SERVICES (DIENSTEN)
+// ==========================================
+
+model ProjectService {
+  id                  String        @id @default(cuid())
+  projectId           String
+  simplicateServiceId String        @unique
+
+  name                String
+  status              String        @default("open")
+  startDate           DateTime?
+  endDate             DateTime?
+
+  // Budget tracking
+  budgetHours         Float?        // Total budgeted hours
+  budgetAmount        Float?        // Total budgeted amount
+  defaultHourlyRate   Float?        // Default tariff
+
+  // Calculated fields (updated on sync)
+  usedHours           Float         @default(0)
+  usedAmount          Float         @default(0)
+
+  // Invoice settings
+  invoiceMethod       String?       // "Hours", "Fixed", etc.
+  trackHours          Boolean       @default(true)
+
+  createdAt           DateTime      @default(now())
+  updatedAt           DateTime      @updatedAt
+
+  // Relations
+  project             Project       @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  hoursEntries        HoursEntry[]
+
+  @@index([projectId])
+  @@index([simplicateServiceId])
 }
 
 // ==========================================
@@ -230,35 +269,39 @@ enum HoursStatus {
 }
 
 model HoursEntry {
-  id                String       @id @default(cuid())
+  id                String          @id @default(cuid())
   projectId         String
   userId            String
+  projectServiceId  String?         // Link to dienst
 
   // Hours details
   hours             Float
   date              DateTime
   description       String?
   hourlyRate        Float?
+  billable          Boolean         @default(true)
 
   // Status
-  status            HoursStatus  @default(PENDING)
+  status            HoursStatus     @default(PENDING)
   submittedAt       DateTime?
   approvedAt        DateTime?
 
   // Simplicate integration
-  simplicateHoursId String?      @unique
+  simplicateHoursId String?         @unique
 
-  createdAt         DateTime     @default(now())
-  updatedAt         DateTime     @updatedAt
+  createdAt         DateTime        @default(now())
+  updatedAt         DateTime        @updatedAt
 
   // Relations
-  project           Project      @relation(fields: [projectId], references: [id], onDelete: Cascade)
-  user              User         @relation(fields: [userId], references: [id], onDelete: Cascade)
-  invoice           Invoice?     @relation(fields: [invoiceId], references: [id])
+  project           Project         @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  user              User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  projectService    ProjectService? @relation(fields: [projectServiceId], references: [id], onDelete: SetNull)
+  invoice           Invoice?        @relation(fields: [invoiceId], references: [id])
   invoiceId         String?
 
   @@index([projectId])
   @@index([userId])
+  @@index([projectServiceId])
   @@index([status])
   @@index([date])
 }

@@ -57,6 +57,46 @@ export interface SimplicateHours {
   description?: string;
   status?: string;
   hourly_rate?: number;
+  billable?: boolean;
+  tariff?: number;
+  projectservice?: {
+    id: string;
+    name: string;
+    start_date?: string;
+  };
+  employee?: {
+    id: string;
+    name: string;
+  };
+  project?: {
+    id: string;
+    name: string;
+  };
+}
+
+export interface SimplicateServiceHourType {
+  id: string;
+  budgeted_amount: number;
+  tariff: number;
+  billable: boolean;
+  hourstype?: {
+    id: string;
+    label: string;
+    type: string;
+  };
+}
+
+export interface SimplicateService {
+  id: string;
+  project_id: string;
+  name: string;
+  status: string;
+  start_date?: string;
+  end_date?: string;
+  amount?: string;
+  invoice_method?: string;
+  track_hours?: boolean;
+  hour_types?: SimplicateServiceHourType[];
 }
 
 export interface SimplicateDocument {
@@ -163,6 +203,30 @@ export class SimplicateClient {
     return this.request<SimplicateEmployee[]>(
       `/projects/project/${projectId}/employee`
     );
+  }
+
+  // ==========================================
+  // Project Services (Diensten)
+  // ==========================================
+
+  async getServices(params?: {
+    project_id?: string;
+    offset?: number;
+    limit?: number;
+  }): Promise<SimplicateService[]> {
+    const queryParams = new URLSearchParams();
+    if (params?.project_id) queryParams.set('q[project_id]', params.project_id);
+    if (params?.offset) queryParams.set('offset', params.offset.toString());
+    if (params?.limit) queryParams.set('limit', params.limit.toString());
+
+    const query = queryParams.toString();
+    return this.request<SimplicateService[]>(
+      `/projects/service${query ? `?${query}` : ''}`
+    );
+  }
+
+  async getService(id: string): Promise<SimplicateService> {
+    return this.request<SimplicateService>(`/projects/service/${id}`);
   }
 
   // ==========================================

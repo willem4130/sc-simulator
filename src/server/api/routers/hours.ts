@@ -50,6 +50,14 @@ export const hoursRouter = createTRPCRouter({
                 clientName: true,
               },
             },
+            projectService: {
+              select: {
+                id: true,
+                name: true,
+                budgetHours: true,
+                usedHours: true,
+              },
+            },
           },
           orderBy: {
             date: 'desc',
@@ -162,4 +170,79 @@ export const hoursRouter = createTRPCRouter({
 
       return entries
     }),
+
+  // Get all project services (diensten) with budget info
+  getServices: publicProcedure
+    .input(
+      z.object({
+        projectId: z.string().optional(),
+        status: z.string().optional(),
+      }).optional()
+    )
+    .query(async ({ ctx, input }) => {
+      const where: any = {}
+      if (input?.projectId) where.projectId = input.projectId
+      if (input?.status) where.status = input.status
+
+      const services = await ctx.db.projectService.findMany({
+        where,
+        include: {
+          project: {
+            select: {
+              id: true,
+              name: true,
+              clientName: true,
+            },
+          },
+          _count: {
+            select: {
+              hoursEntries: true,
+            },
+          },
+        },
+        orderBy: [
+          { project: { name: 'asc' } },
+          { name: 'asc' },
+        ],
+      })
+
+      // Calculate budget usage percentage
+      return services.map(service => ({
+        ...service,
+        budgetPercentage: service.budgetHours && service.budgetHours > 0
+          ? Math.round((service.usedHours / service.budgetHours) * 100)
+          : null,
+        remainingHours: service.budgetHours
+          ? service.budgetHours - service.usedHours
+          : null,
+      }))
+    }),
+
+  // Get services stats for overview
+  getServicesStats: publicProcedure.query(async ({ ctx }) => {
+    const services = await ctx.db.projectService.findMany({
+      where: {
+        status: 'open',
+      },
+      select: {
+        budgetHours: true,
+        usedHours: true,
+      },
+    })
+
+    const totalBudget = services.reduce((sum, s) => sum + (s.budgetHours || 0), 0)
+    const totalUsed = services.reduce((sum, s) => sum + s.usedHours, 0)
+    const atRisk = services.filter(s => {
+      if (!s.budgetHours || s.budgetHours === 0) return false
+      return (s.usedHours / s.budgetHours) >= 0.9
+    }).length
+
+    return {
+      totalServices: services.length,
+      totalBudgetHours: totalBudget,
+      totalUsedHours: totalUsed,
+      overallPercentage: totalBudget > 0 ? Math.round((totalUsed / totalBudget) * 100) : 0,
+      servicesAtRisk: atRisk,
+    }
+  }),
 })
