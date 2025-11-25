@@ -13,13 +13,14 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { Badge } from '@/components/ui/badge'
-import { Bell, Lock, Palette, Globe, Database, Shield, RefreshCw } from 'lucide-react'
+import { Bell, Lock, Palette, Globe, Database, Shield, RefreshCw, Users } from 'lucide-react'
 import { api } from '@/trpc/react'
 import { useState, useEffect } from 'react'
 
 export default function SettingsPage() {
   // Simplicate Sync state
-  const [isSyncing, setIsSyncing] = useState(false)
+  const [isSyncingProjects, setIsSyncingProjects] = useState(false)
+  const [isSyncingEmployees, setIsSyncingEmployees] = useState(false)
   const [syncMessage, setSyncMessage] = useState<string | null>(null)
 
   // Settings form state
@@ -67,24 +68,47 @@ export default function SettingsPage() {
   const { data: syncStatus, refetch: refetchStatus } = api.sync.getSyncStatus.useQuery()
   const syncProjects = api.sync.syncProjects.useMutation({
     onSuccess: (data) => {
-      setIsSyncing(false)
+      setIsSyncingProjects(false)
       setSyncMessage(
-        `✅ Sync complete! Created: ${data.created}, Updated: ${data.updated}, Total: ${data.totalProcessed}`
+        `✅ Projects sync complete! Created: ${data.created}, Updated: ${data.updated}, Total: ${data.totalProcessed}`
       )
       refetchStatus()
       setTimeout(() => setSyncMessage(null), 10000)
     },
     onError: (error) => {
-      setIsSyncing(false)
-      setSyncMessage(`❌ Sync failed: ${error.message}`)
+      setIsSyncingProjects(false)
+      setSyncMessage(`❌ Projects sync failed: ${error.message}`)
       setTimeout(() => setSyncMessage(null), 10000)
     },
   })
 
-  const handleSync = () => {
-    setIsSyncing(true)
+  const syncEmployees = api.sync.syncEmployees.useMutation({
+    onSuccess: (data) => {
+      setIsSyncingEmployees(false)
+      const errorInfo = data.errors.length > 0 ? ` (${data.errors.length} skipped)` : ''
+      setSyncMessage(
+        `✅ Employees sync complete! Created: ${data.created}, Updated: ${data.updated}, Total: ${data.totalProcessed}${errorInfo}`
+      )
+      refetchStatus()
+      setTimeout(() => setSyncMessage(null), 10000)
+    },
+    onError: (error) => {
+      setIsSyncingEmployees(false)
+      setSyncMessage(`❌ Employees sync failed: ${error.message}`)
+      setTimeout(() => setSyncMessage(null), 10000)
+    },
+  })
+
+  const handleSyncProjects = () => {
+    setIsSyncingProjects(true)
     setSyncMessage(null)
     syncProjects.mutate()
+  }
+
+  const handleSyncEmployees = () => {
+    setIsSyncingEmployees(true)
+    setSyncMessage(null)
+    syncEmployees.mutate()
   }
 
   const handleSaveGeneral = () => {
@@ -181,15 +205,20 @@ export default function SettingsPage() {
               <RefreshCw className="h-5 w-5" />
               <CardTitle>Simplicate Sync</CardTitle>
             </div>
-            <CardDescription>Import projects from Simplicate to your database</CardDescription>
+            <CardDescription>Import projects and employees from Simplicate to your database</CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
             {syncMessage && (
               <div className="rounded-lg border bg-muted p-3 text-sm">{syncMessage}</div>
             )}
+
+            {/* Projects Sync */}
             <div className="flex items-center justify-between rounded-lg border p-4">
               <div className="space-y-0.5">
-                <Label>Sync Status</Label>
+                <Label className="flex items-center gap-2">
+                  <Database className="h-4 w-4" />
+                  Projects
+                </Label>
                 {syncStatus?.hasBeenSynced ? (
                   <p className="text-sm text-muted-foreground">
                     Last synced:{' '}
@@ -204,8 +233,8 @@ export default function SettingsPage() {
                   Total projects: {syncStatus?.totalProjects || 0}
                 </p>
               </div>
-              <Button onClick={handleSync} disabled={isSyncing} size="sm">
-                {isSyncing ? (
+              <Button onClick={handleSyncProjects} disabled={isSyncingProjects || isSyncingEmployees} size="sm">
+                {isSyncingProjects ? (
                   <>
                     <RefreshCw className="mr-2 h-4 w-4 animate-spin" />
                     Syncing...
@@ -213,21 +242,46 @@ export default function SettingsPage() {
                 ) : (
                   <>
                     <RefreshCw className="mr-2 h-4 w-4" />
-                    Sync Now
+                    Sync Projects
                   </>
                 )}
               </Button>
             </div>
+
+            {/* Employees Sync */}
+            <div className="flex items-center justify-between rounded-lg border p-4">
+              <div className="space-y-0.5">
+                <Label className="flex items-center gap-2">
+                  <Users className="h-4 w-4" />
+                  Employees
+                </Label>
+                <p className="text-sm text-muted-foreground">
+                  Synced employees: {syncStatus?.syncedUsers || 0} / {syncStatus?.totalUsers || 0} users
+                </p>
+              </div>
+              <Button onClick={handleSyncEmployees} disabled={isSyncingProjects || isSyncingEmployees} size="sm">
+                {isSyncingEmployees ? (
+                  <>
+                    <RefreshCw className="mr-2 h-4 w-4 animate-spin" />
+                    Syncing...
+                  </>
+                ) : (
+                  <>
+                    <Users className="mr-2 h-4 w-4" />
+                    Sync Employees
+                  </>
+                )}
+              </Button>
+            </div>
+
             <Separator />
             <div className="space-y-2 text-sm text-muted-foreground">
               <p>
                 <strong>What gets synced:</strong>
               </p>
               <ul className="list-inside list-disc space-y-1">
-                <li>Project names and descriptions</li>
-                <li>Client information</li>
-                <li>Project status and dates</li>
-                <li>Project numbers</li>
+                <li><strong>Projects:</strong> Names, descriptions, clients, status, dates, project numbers</li>
+                <li><strong>Employees:</strong> Names, email addresses, linked to Simplicate employee IDs</li>
               </ul>
             </div>
           </CardContent>

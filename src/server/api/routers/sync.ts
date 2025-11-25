@@ -66,6 +66,89 @@ export const syncRouter = createTRPCRouter({
     }
   }),
 
+  // Sync employees from Simplicate to local database as users
+  syncEmployees: publicProcedure.mutation(async ({ ctx }) => {
+    const client = getSimplicateClient()
+
+    try {
+      // Fetch all employees from Simplicate
+      const simplicateEmployees = await client.getEmployees({ limit: 100 })
+
+      const results = {
+        created: 0,
+        updated: 0,
+        errors: [] as string[],
+      }
+
+      // Import each employee as a user
+      for (const employee of simplicateEmployees) {
+        try {
+          // Skip employees without email
+          if (!employee.email) {
+            results.errors.push(`Skipped employee ${employee.name}: No email address`)
+            continue
+          }
+
+          const userData = {
+            email: employee.email,
+            name: employee.name,
+            simplicateEmployeeId: employee.id,
+            role: 'TEAM_MEMBER' as const,
+          }
+
+          // Check if user exists by simplicateEmployeeId or email
+          const existingBySimplicateId = await ctx.db.user.findUnique({
+            where: { simplicateEmployeeId: employee.id },
+          })
+
+          const existingByEmail = await ctx.db.user.findUnique({
+            where: { email: employee.email },
+          })
+
+          if (existingBySimplicateId) {
+            // Update existing user by Simplicate ID
+            await ctx.db.user.update({
+              where: { id: existingBySimplicateId.id },
+              data: {
+                email: userData.email,
+                name: userData.name,
+              },
+            })
+            results.updated++
+          } else if (existingByEmail) {
+            // Link existing user by email to Simplicate
+            await ctx.db.user.update({
+              where: { id: existingByEmail.id },
+              data: {
+                name: userData.name,
+                simplicateEmployeeId: userData.simplicateEmployeeId,
+              },
+            })
+            results.updated++
+          } else {
+            // Create new user
+            await ctx.db.user.create({
+              data: userData,
+            })
+            results.created++
+          }
+        } catch (error) {
+          const errorMessage = error instanceof Error ? error.message : 'Unknown error'
+          results.errors.push(`Failed to sync employee ${employee.name}: ${errorMessage}`)
+        }
+      }
+
+      return {
+        success: true,
+        totalProcessed: simplicateEmployees.length,
+        ...results,
+      }
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error'
+      throw new Error(`Failed to sync employees from Simplicate: ${errorMessage}`)
+    }
+  }),
+
   // Get sync status
   getSyncStatus: publicProcedure.query(async ({ ctx }) => {
     const lastSyncedProject = await ctx.db.project.findFirst({
@@ -74,10 +157,16 @@ export const syncRouter = createTRPCRouter({
     })
 
     const totalProjects = await ctx.db.project.count()
+    const totalUsers = await ctx.db.user.count()
+    const syncedUsers = await ctx.db.user.count({
+      where: { simplicateEmployeeId: { not: null } },
+    })
 
     return {
       lastSyncedAt: lastSyncedProject?.lastSyncedAt || null,
       totalProjects,
+      totalUsers,
+      syncedUsers,
       hasBeenSynced: totalProjects > 0,
     }
   }),
