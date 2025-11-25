@@ -2,7 +2,18 @@
 
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { LayoutDashboard, Users, Settings, LogOut, Workflow, FolderKanban, Activity } from 'lucide-react'
+import {
+  LayoutDashboard,
+  Users,
+  Settings,
+  LogOut,
+  Workflow,
+  FolderKanban,
+  Activity,
+  Clock,
+  FileText,
+  Receipt,
+} from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Separator } from '@/components/ui/separator'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
@@ -29,6 +40,26 @@ const navItems = [
     icon: FolderKanban,
   },
   {
+    title: 'Hours',
+    href: '/admin/hours',
+    icon: Clock,
+  },
+  {
+    title: 'People',
+    href: '/admin/users',
+    icon: Users,
+  },
+  {
+    title: 'Contracts',
+    href: '/admin/contracts',
+    icon: FileText,
+  },
+  {
+    title: 'Invoices',
+    href: '/admin/invoices',
+    icon: Receipt,
+  },
+  {
     title: 'Workflows',
     href: '/admin/workflows',
     icon: Workflow,
@@ -37,11 +68,6 @@ const navItems = [
     title: 'Automation',
     href: '/admin/automation',
     icon: Activity,
-  },
-  {
-    title: 'Users',
-    href: '/admin/users',
-    icon: Users,
   },
   {
     title: 'Settings',
