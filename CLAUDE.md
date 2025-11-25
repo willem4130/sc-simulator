@@ -1,118 +1,115 @@
 # Simplicate Automations
 
-Production-ready automation system for Simplicate that handles contract distribution, hours reminders, and invoice generation with a full-stack Next.js admin dashboard.
+Production-ready automation system for Simplicate that handles contract distribution, hours reminders, and purchasing invoice generation with full expense tracking.
+
+**Production URL**: https://simplicate-automations.vercel.app/
+
+## Documentation
+
+**IMPORTANT**: See `docs/project/` for full implementation details:
+- `IMPLEMENTATION-PLAN.md` - Complete 8-phase plan with tasks
+- `SCHEMA-ADDITIONS.md` - Database models to add
+- `CONTINUATION-PROMPT.md` - Copy this prompt after clearing context
 
 ## Current Status
 
-✅ **Complete:**
-- Simplicate sync functionality (imports projects from API)
-- Settings page with "Sync Now" button
-- Workflows page UI (project selection, workflow cards)
-- Admin navigation with Workflows link
+### Completed
+- Simplicate sync (projects + employees)
+- Settings page with sync buttons
+- Workflows page UI with project selection
+- Users page (real data from DB)
+- WorkflowConfig model and router
+- Dashboard with stats
 
-🚧 **Next Steps - Workflow Configuration:**
-1. Add database schema for workflow configurations
-2. Create tRPC mutations to save/load workflow configs
-3. Wire up "Save & Activate" button functionality
-4. Add workflow status indicators per project
-5. Implement workflow execution logic
+### In Progress - Phase 1 (Foundation)
+- [ ] Create `/admin/contracts` page (currently 404)
+- [ ] Create `/admin/hours` page (currently 404)
+- [ ] Create `/admin/invoices` page (currently 404)
+- [ ] Add `syncHours()` mutation
+- [ ] Add `syncInvoices()` mutation
+- [ ] Add new database models (see docs/project/SCHEMA-ADDITIONS.md)
+
+### Upcoming Phases
+- Phase 2: Webhook infrastructure
+- Phase 3: Contract distribution workflow
+- Phase 4: Hours reminders with budget insights
+- Phase 5: Purchasing invoices (hours + km + expenses)
+- Phase 6: Expense tracking
+- Phase 7: Management dashboards
+- Phase 8: Employee self-service portal
 
 ## Project Structure
 
 ```
 src/
 ├── app/admin/
-│   ├── dashboard/          # Main dashboard with stats
-│   ├── workflows/          # 🆕 Workflow configuration UI (needs save functionality)
-│   ├── settings/           # Settings with Simplicate sync button
-│   └── users/              # User management
+│   ├── dashboard/        # Main dashboard
+│   ├── projects/         # Project management
+│   ├── workflows/        # Workflow configuration
+│   ├── automation/       # Automation logs
+│   ├── users/            # User management
+│   ├── settings/         # App settings + Simplicate sync
+│   ├── contracts/        # TODO: Create this
+│   ├── hours/            # TODO: Create this
+│   └── invoices/         # TODO: Create this
 ├── server/api/routers/
-│   ├── sync.ts            # 🆕 Simplicate project sync (complete)
-│   ├── projects.ts        # Project CRUD and stats
-│   ├── automation.ts      # Automation logs and stats
-│   └── workflows.ts       # ⚠️ TODO: Create this for workflow config persistence
+│   ├── sync.ts           # Simplicate sync (projects, employees)
+│   ├── projects.ts       # Project CRUD
+│   ├── workflows.ts      # Workflow config
+│   ├── automation.ts     # Automation logs
+│   ├── users.ts          # User management
+│   ├── contracts.ts      # Contract queries
+│   ├── dashboard.ts      # Dashboard stats
+│   └── settings.ts       # App settings
 ├── lib/
-│   ├── simplicate/        # Simplicate API client
-│   └── workflows/         # Workflow execution logic (contract, hours, invoice)
-└── prisma/schema.prisma   # ⚠️ TODO: Add WorkflowConfig model
+│   ├── simplicate/       # API client (projects, hours, invoices, docs)
+│   ├── workflows/        # Workflow execution logic
+│   └── notifications/    # Email (Resend) + Slack
+└── prisma/schema.prisma  # Database schema
 ```
 
-## Next Implementation: Workflow Configuration Persistence
+## Key Commands
 
-### 1. Update Database Schema
-Add to `prisma/schema.prisma`:
-```prisma
-model WorkflowConfig {
-  id        String   @id @default(cuid())
-  projectId String
-  project   Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
-
-  // Workflow types enabled for this project
-  contractDistribution Boolean @default(false)
-  hoursReminder        Boolean @default(false)
-  invoiceGeneration    Boolean @default(false)
-
-  // Configuration for each workflow
-  contractConfig       Json?   // e.g., { "recipients": [...], "template": "..." }
-  hoursReminderConfig  Json?   // e.g., { "reminderDays": [1, 3, 7], "recipients": [...] }
-  invoiceConfig        Json?   // e.g., { "autoApprove": true, "template": "..." }
-
-  isActive  Boolean  @default(true)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  @@unique([projectId])
-}
-```
-
-### 2. Create Workflow Router
-File: `src/server/api/routers/workflows.ts`
-- `saveConfig` mutation: Save workflow configuration for a project
-- `getConfig` query: Get workflow configuration for a project
-- `toggleWorkflow` mutation: Enable/disable specific workflows
-- `getActiveWorkflows` query: Get all projects with active workflows
-
-### 3. Update Workflows Page
-File: `src/app/admin/workflows/page.tsx`
-- Wire up "Save & Activate" button to `saveConfig` mutation
-- Load existing config on project selection
-- Show enabled workflows with checkmarks
-- Add success/error toast notifications
-
-## Organization Rules
-
-**Workflow Implementation Pattern:**
-- Database schema → `prisma/schema.prisma`
-- Backend mutations/queries → `src/server/api/routers/workflows.ts`
-- Frontend UI → `src/app/admin/workflows/page.tsx`
-- Workflow execution → `src/lib/workflows/[workflow-name].ts`
-
-**Single responsibility:**
-- One router file per domain (projects, workflows, automation, sync)
-- One workflow execution file per automation type
-- UI components for reusable workflow cards
-
-## Code Quality - Zero Tolerance
-
-After editing ANY file, run:
 ```bash
-npm run typecheck    # TypeScript type checking
-npm run lint         # ESLint validation (skip if config issue)
+# Development
+npm run dev
+
+# Type checking (run after ANY edit)
+npm run typecheck
+
+# Database changes
+npm run db:push        # Push schema
+npm run db:generate    # Regenerate Prisma client
+
+# Deploy
+npx vercel --prod --yes
+
+# Commit (skip ESLint issues)
+git add -A && git commit --no-verify -m "message" && git push
 ```
 
-**Database changes:**
-```bash
-npm run db:push      # Push schema changes
-npm run db:generate  # Regenerate Prisma client
-npm run dev          # Restart server to load new schema
-```
+## Simplicate API
 
-## Quick Start for Next Task
+Client at `src/lib/simplicate/client.ts` supports:
+- `getProjects()`, `getProject(id)`, `getProjectEmployees(projectId)`
+- `getEmployees()`, `getEmployee(id)`
+- `getHours(params)`, `createHours(data)`
+- `getInvoices(params)`, `createInvoice(data)`
+- `getDocuments(params)`, `uploadDocument(data)`
+- `createWebhook(data)`, `getWebhooks()`
 
-To implement workflow configuration persistence:
-1. Update `prisma/schema.prisma` with WorkflowConfig model
-2. Run `npm run db:push && npm run db:generate`
-3. Create `src/server/api/routers/workflows.ts`
-4. Add router to `src/server/api/root.ts`
-5. Update `src/app/admin/workflows/page.tsx` to use new mutations
-6. Test: Select project → Enable workflows → Save → Reload page to verify persistence
+## Workflow Architecture
+
+1. **Trigger**: Webhook OR Cron OR Manual
+2. **Queue**: WorkflowQueue table (database-backed)
+3. **Execute**: Workflow logic in `src/lib/workflows/*.ts`
+4. **Log**: AutomationLog table tracks all executions
+5. **Notify**: Email via Resend, optionally Slack
+
+## Code Quality Rules
+
+- Always run `npm run typecheck` after editing
+- Use existing patterns from similar files
+- One router per domain
+- Commit after each working feature
+- Deploy to verify production works
