@@ -349,15 +349,8 @@ export const syncRouter = createTRPCRouter({
     const client = getSimplicateClient()
 
     try {
-      // Fetch hours from last 90 days
-      const endDate = new Date()
-      const startDate = new Date()
-      startDate.setDate(startDate.getDate() - 90)
-
-      const simplicateHours = await client.getHours({
-        start_date: startDate.toISOString().split('T')[0],
-        end_date: endDate.toISOString().split('T')[0],
-      })
+      // Fetch all hours with pagination (no date filter to get everything)
+      const simplicateHours = await client.getAllHours()
 
       const results = {
         created: 0,

@@ -260,17 +260,52 @@ export class SimplicateClient {
     employee_id?: string;
     start_date?: string;
     end_date?: string;
+    offset?: number;
+    limit?: number;
   }): Promise<SimplicateHours[]> {
     const queryParams = new URLSearchParams();
-    if (params?.project_id) queryParams.set('project_id', params.project_id);
-    if (params?.employee_id) queryParams.set('employee_id', params.employee_id);
-    if (params?.start_date) queryParams.set('start_date', params.start_date);
-    if (params?.end_date) queryParams.set('end_date', params.end_date);
+    if (params?.project_id) queryParams.set('q[project_id]', params.project_id);
+    if (params?.employee_id) queryParams.set('q[employee_id]', params.employee_id);
+    if (params?.start_date) queryParams.set('q[start_date][ge]', params.start_date);
+    if (params?.end_date) queryParams.set('q[start_date][le]', params.end_date);
+    if (params?.offset) queryParams.set('offset', params.offset.toString());
+    if (params?.limit) queryParams.set('limit', params.limit.toString());
 
     const query = queryParams.toString();
     return this.request<SimplicateHours[]>(
       `/hours/hours${query ? `?${query}` : ''}`
     );
+  }
+
+  // Fetch all hours with pagination
+  async getAllHours(params?: {
+    project_id?: string;
+    employee_id?: string;
+    start_date?: string;
+    end_date?: string;
+  }): Promise<SimplicateHours[]> {
+    const allHours: SimplicateHours[] = [];
+    const pageSize = 100;
+    let offset = 0;
+    let hasMore = true;
+
+    while (hasMore) {
+      const batch = await this.getHours({
+        ...params,
+        offset,
+        limit: pageSize,
+      });
+
+      allHours.push(...batch);
+
+      if (batch.length < pageSize) {
+        hasMore = false;
+      } else {
+        offset += pageSize;
+      }
+    }
+
+    return allHours;
   }
 
   async createHours(data: {
@@ -355,6 +390,154 @@ export class SimplicateClient {
 
   async getInvoice(id: string): Promise<SimplicateInvoice> {
     return this.request<SimplicateInvoice>(`/invoices/invoice/${id}`);
+  }
+
+  // ==========================================
+  // Hours Approval
+  // ==========================================
+
+  async getHoursApproval(params?: {
+    offset?: number;
+    limit?: number;
+  }): Promise<Array<{
+    id: string;
+    employee_id: string;
+    status: string;
+    date: string;
+  }>> {
+    const queryParams = new URLSearchParams();
+    if (params?.offset) queryParams.set('offset', params.offset.toString());
+    if (params?.limit) queryParams.set('limit', params.limit.toString());
+
+    const query = queryParams.toString();
+    return this.request(`/hours/approval${query ? `?${query}` : ''}`);
+  }
+
+  async getHoursApprovalStatuses(): Promise<Array<{
+    id: string;
+    label: string;
+  }>> {
+    return this.request('/hours/approvalstatus');
+  }
+
+  async getHoursTypes(): Promise<Array<{
+    id: string;
+    label: string;
+    type: string;
+  }>> {
+    return this.request('/hours/hourstype');
+  }
+
+  // ==========================================
+  // Employee Expenses (from hours module)
+  // ==========================================
+
+  async getEmployeeExpenses(params?: {
+    offset?: number;
+    limit?: number;
+  }): Promise<Array<{
+    id: string;
+    employee_id: string;
+    project_id?: string;
+    amount: number;
+    date: string;
+    description?: string;
+  }>> {
+    const queryParams = new URLSearchParams();
+    if (params?.offset) queryParams.set('offset', params.offset.toString());
+    if (params?.limit) queryParams.set('limit', params.limit.toString());
+
+    const query = queryParams.toString();
+    return this.request(`/hours/employeeexpenses${query ? `?${query}` : ''}`);
+  }
+
+  // ==========================================
+  // Costs & Expenses
+  // ==========================================
+
+  async getCostTypes(): Promise<Array<{
+    id: string;
+    label: string;
+  }>> {
+    return this.request('/costs/coststype');
+  }
+
+  async getExpenses(params?: {
+    offset?: number;
+    limit?: number;
+  }): Promise<Array<{
+    id: string;
+    project_id?: string;
+    employee_id?: string;
+    amount: number;
+    date: string;
+    description?: string;
+    cost_type_id?: string;
+  }>> {
+    const queryParams = new URLSearchParams();
+    if (params?.offset) queryParams.set('offset', params.offset.toString());
+    if (params?.limit) queryParams.set('limit', params.limit.toString());
+
+    const query = queryParams.toString();
+    return this.request(`/costs/expense${query ? `?${query}` : ''}`);
+  }
+
+  // ==========================================
+  // Mileage
+  // ==========================================
+
+  async getMileage(params?: {
+    offset?: number;
+    limit?: number;
+  }): Promise<Array<{
+    id: string;
+    employee_id: string;
+    project_id?: string;
+    kilometers: number;
+    date: string;
+    description?: string;
+    rate?: number;
+  }>> {
+    const queryParams = new URLSearchParams();
+    if (params?.offset) queryParams.set('offset', params.offset.toString());
+    if (params?.limit) queryParams.set('limit', params.limit.toString());
+
+    const query = queryParams.toString();
+    return this.request(`/mileage/mileage${query ? `?${query}` : ''}`);
+  }
+
+  // ==========================================
+  // CRM - Organizations
+  // ==========================================
+
+  async getOrganizations(params?: {
+    offset?: number;
+    limit?: number;
+  }): Promise<Array<{
+    id: string;
+    name: string;
+    email?: string;
+    phone?: string;
+    visiting_address?: {
+      city?: string;
+      country?: string;
+    };
+  }>> {
+    const queryParams = new URLSearchParams();
+    if (params?.offset) queryParams.set('offset', params.offset.toString());
+    if (params?.limit) queryParams.set('limit', params.limit.toString());
+
+    const query = queryParams.toString();
+    return this.request(`/crm/organization${query ? `?${query}` : ''}`);
+  }
+
+  async getOrganization(id: string): Promise<{
+    id: string;
+    name: string;
+    email?: string;
+    phone?: string;
+  }> {
+    return this.request(`/crm/organization/${id}`);
   }
 
   // ==========================================

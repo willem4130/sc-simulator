@@ -14,14 +14,14 @@ Production-ready automation system for Simplicate that handles contract distribu
 ## Current Status
 
 ### Phase 1 - COMPLETE
-- Simplicate sync (projects + employees + hours + invoices)
+- Simplicate sync (projects + employees + hours + invoices) with pagination
 - Settings page with sync buttons
 - Workflows page UI with project selection
 - Users page (real data from DB)
 - WorkflowConfig model and router
 - Dashboard with stats
 - `/admin/contracts` page with status filtering
-- `/admin/hours` page with sync button and stats
+- `/admin/hours` page - redesigned with project/client focus, filtering, sorting, monthly breakdown
 - `/admin/invoices` page with sync button and stats
 - New database models: ProjectMember, ProjectBudget, Expense, PurchasingInvoice, ContractTemplate, WorkflowQueue
 - New routers: hours.ts, invoices.ts
@@ -101,12 +101,46 @@ git add -A && git commit --no-verify -m "message" && git push
 ## Simplicate API
 
 Client at `src/lib/simplicate/client.ts` supports:
+
+### Projects
 - `getProjects()`, `getProject(id)`, `getProjectEmployees(projectId)`
+- `getServices(params)`, `getService(id)` - Project services (diensten)
+
+### HRM
 - `getEmployees()`, `getEmployee(id)`
-- `getHours(params)`, `createHours(data)`
-- `getInvoices(params)`, `createInvoice(data)`
-- `getDocuments(params)`, `uploadDocument(data)`
+
+### Hours
+- `getHours(params)`, `getAllHours(params)` - With pagination support
+- `createHours(data)`
+- `getHoursApproval(params)`, `getHoursApprovalStatuses()`
+- `getHoursTypes()`
+
+### Invoices
+- `getInvoices(params)`, `createInvoice(data)`, `getInvoice(id)`
+
+### Documents
+- `getDocuments(params)`, `uploadDocument(data)`, `getDocument(id)`
+
+### Costs & Expenses
+- `getCostTypes()`, `getExpenses(params)`
+- `getEmployeeExpenses(params)` - From hours module
+- `getMileage(params)` - Kilometer registrations
+
+### CRM
+- `getOrganizations(params)`, `getOrganization(id)`
+
+### Webhooks
 - `createWebhook(data)`, `getWebhooks()`
+
+### API Filtering (Simplicate v2 syntax)
+```typescript
+// Filter examples for getHours():
+q[project_id]=xxx        // Filter by project
+q[employee_id]=xxx       // Filter by employee
+q[start_date][ge]=2024-01-01  // Date >= (greater or equal)
+q[start_date][le]=2024-12-31  // Date <= (less or equal)
+offset=0&limit=100       // Pagination
+```
 
 ## Workflow Architecture
 

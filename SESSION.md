@@ -1,6 +1,6 @@
 # Session State - Simplicate Automation System
 
-**Last Updated**: November 25, 2025, 3:25 PM
+**Last Updated**: November 25, 2025, 4:15 PM
 **Session Type**: Standard
 **Project**: Simplicate Automation System for contract distribution, hours reminders, and invoice generation
 
@@ -8,7 +8,7 @@
 
 ## 🎯 Current Objective
 
-Complete Phase 1 Foundation and prepare for Phase 2 Webhooks implementation. Phase 1 added all the missing admin pages (contracts, hours, invoices), sync endpoints for hours and invoices, and new database models for future features.
+Completed redesign of the Hours page with project/client focus, filtering capabilities, and monthly breakdown views. Updated navigation sidebar with logical presentation.
 
 ---
 
@@ -16,32 +16,41 @@ Complete Phase 1 Foundation and prepare for Phase 2 Webhooks implementation. Pha
 
 ### ✅ Completed Tasks
 
-- **Phase 1 Foundation - COMPLETE**
-  - Created `/admin/contracts` page with status filtering and stats cards
-  - Created `/admin/hours` page with sync button and time entry table
-  - Created `/admin/invoices` page with sync button and invoice table
-  - Added `syncHours()` mutation to sync router (fetches last 90 days)
-  - Added `syncInvoices()` mutation to sync router
-  - Created `hours.ts` router with getAll, getById, getStats, getByUser endpoints
-  - Created `invoices.ts` router with getAll, getById, getStats endpoints
-  - Added new Prisma models: ProjectMember, ProjectBudget, Expense, PurchasingInvoice, ContractTemplate, WorkflowQueue
-  - Added new enums: ExpenseCategory, ExpenseStatus, PurchasingInvoiceStatus, TemplateSource, QueueStatus
-  - Added kmRate field to AppSettings model
-  - Registered hours and invoices routers in root.ts
-  - All typecheck passes
-  - Deployed to Vercel production successfully
+- **Hours Page Redesign - COMPLETE**
+  - Redesigned hours page with project/client-centric view (not dienst-focused)
+  - Added filtering by: Month (last 12 months), Project, Employee
+  - Added sorting by: Client, Project, Hours, Budget %
+  - Created collapsible project cards showing Client - Project hierarchy
+  - Each project expands to show diensten with budget progress
+  - Each dienst shows employee breakdown with hours this month
+  - Budget comparison: shows total budget usage AND this month's contribution
+  - Added stats cards: Hours this month, Time entries, Projects, Last 6 months total
+
+- **Router Endpoints Added**
+  - `getProjectsSummary` - Project-centric hours with monthly breakdown
+  - `getMonthlyTotals` - Trend data for last N months
+  - `getProjectsForFilter` - Projects dropdown data
+  - `getEmployeesForFilter` - Employees dropdown data
+
+- **Navigation Update - COMPLETE**
+  - Reordered: Dashboard, Projects, Hours, People, Contracts, Invoices, Workflows, Automation, Settings
+  - Renamed "Users" to "People"
+  - Added Hours, Contracts, Invoices to sidebar
+
+- **Phase 2 - COMPLETE** (from previous session)
+  - `project.employee.linked` webhook handler
+  - Queue processor cron at `/api/cron/process-queue`
+  - Queue monitor UI on Automation page
 
 ### 🚧 In Progress
 
-- None currently - Phase 1 complete
+- User is testing the new Hours page UI
 
 ### 📋 Pending Tasks
 
-**Phase 2 - Webhooks (Next)**:
-- [ ] Enhance webhook handler for `project.employee.linked` event
-- [ ] Create queue processor cron endpoint
-- [ ] Test webhook flow end-to-end
-- [ ] Connect WorkflowQueue model to webhook processing
+**User Feedback**:
+- Awaiting feedback on Hours page redesign
+- May need adjustments based on testing
 
 **Future Phases**:
 - Phase 3: Contract distribution workflow
@@ -55,37 +64,37 @@ Complete Phase 1 Foundation and prepare for Phase 2 Webhooks implementation. Pha
 
 ## 🔑 Key Decisions Made
 
-**Type Safety for Prisma Queries**
-- **Choice**: Use `Prisma.HoursEntryWhereInput` and `Prisma.InvoiceWhereInput` types
-- **Rationale**: Proper type safety for status filtering with Prisma enums
-- **Impact**: Clean TypeScript compilation, no type errors
+**Hours Page Structure**
+- **Choice**: Project/Client as primary grouping, diensten as secondary
+- **Rationale**: User requested less dienst-focused view, want to see client/project first
+- **Impact**: Clearer hierarchy, easier to understand where hours are going
 
-**Invoices Router Creation**
-- **Choice**: Created separate invoices.ts router (didn't exist before)
-- **Rationale**: Consistent pattern with hours.ts, contracts.ts routers
-- **Impact**: Clean separation of concerns, reusable API endpoints
+**Monthly Filter Default**
+- **Choice**: Default to current month, allow browsing last 12 months
+- **Rationale**: Most useful view is current month with budget comparison
+- **Impact**: Immediate context for "this month vs budget"
 
-**Hours Sync Range**
-- **Choice**: Sync last 90 days of hours by default
-- **Rationale**: Balance between data completeness and API performance
-- **Impact**: Recent hours available immediately, older data can be synced on demand
+**Standard Components Only**
+- **Choice**: Use only shadcn/ui components (Select, Collapsible, Table, Progress, etc.)
+- **Rationale**: User explicitly requested no custom components
+- **Impact**: Consistent UI, maintainable code
+
+**Navigation Order**
+- **Choice**: Dashboard → Projects → Hours → People → Contracts → Invoices → Workflows → Automation → Settings
+- **Rationale**: User-specified logical presentation
+- **Impact**: All pages now accessible from sidebar
 
 ---
 
 ## 📁 Files Modified
 
 ### Created
-- `src/app/admin/contracts/page.tsx` - Contracts management page with status filtering
-- `src/app/admin/hours/page.tsx` - Hours tracking page with sync button
-- `src/app/admin/invoices/page.tsx` - Invoices page with sync button
-- `src/server/api/routers/hours.ts` - Hours CRUD router
-- `src/server/api/routers/invoices.ts` - Invoices CRUD router
+- `src/components/ui/collapsible.tsx` - Collapsible component from shadcn
 
 ### Modified
-- `prisma/schema.prisma` - Added 6 new models, 5 new enums, relations, kmRate field
-- `src/server/api/root.ts` - Registered hours and invoices routers
-- `src/server/api/routers/sync.ts` - Added syncHours(), syncInvoices() mutations
-- `CLAUDE.md` - Updated with Phase 1 completion status
+- `src/app/admin/hours/page.tsx` - Complete redesign with project-centric view
+- `src/server/api/routers/hours.ts` - Added 4 new endpoints for filtering/sorting
+- `src/app/admin/layout.tsx` - Updated navigation sidebar
 
 ---
 
@@ -93,32 +102,27 @@ Complete Phase 1 Foundation and prepare for Phase 2 Webhooks implementation. Pha
 
 **Patterns Implemented**:
 
-1. **Admin Page Pattern** - Consistent across all pages
-   - Stats cards at top showing key metrics
-   - Status filter dropdown
-   - Data table with pagination
-   - Action dropdown menus
-   - Sync button where applicable
+1. **Project-Centric View Pattern**
+   - Group hours by Project → Dienst → Employee
+   - Collapsible cards for drill-down
+   - Budget progress at dienst level
 
-2. **Router Pattern** - Standard tRPC router structure
-   - getAll with pagination and filtering
-   - getById for detail views
-   - getStats for dashboard/stats cards
+2. **Filter/Sort Pattern**
+   - Server-side filtering and sorting via tRPC
+   - Multiple filter dimensions (month, project, employee)
+   - Sort options passed to query
 
-3. **Sync Pattern** - Simplicate data import
-   - Fetch from Simplicate API
-   - Find matching local records (project, user)
-   - Upsert based on Simplicate ID
-   - Return created/updated/skipped counts
+3. **Monthly Aggregation**
+   - Hours aggregated per month
+   - Budget percentage calculated at query time
+   - "This month's % of total budget" metric
 
-**New Database Models**:
+**New Router Endpoints**:
 ```
-ProjectMember    - Project-employee assignments with rates
-ProjectBudget    - Budget tracking per project
-Expense          - Expense entries (km, travel, materials)
-PurchasingInvoice - Employee invoices to company
-ContractTemplate - Contract template management
-WorkflowQueue    - Queue for async workflow processing
+getProjectsSummary    - Monthly breakdown by project/dienst/employee
+getMonthlyTotals      - Trend data for last N months
+getProjectsForFilter  - Projects for dropdown
+getEmployeesForFilter - Employees for dropdown
 ```
 
 ---
@@ -127,19 +131,20 @@ WorkflowQueue    - Queue for async workflow processing
 
 **Important Context**:
 - Production URL: https://simplicate-automations.vercel.app/
-- All three new pages accessible: /admin/contracts, /admin/hours, /admin/invoices
-- Sync buttons on hours and invoices pages trigger real API calls
-- Database schema needs `db:push` to Vercel Postgres after deployment
+- Hours page at: /admin/hours
+- All navigation items now accessible
 
-**Gotchas & Edge Cases**:
-- Local `db:push` fails (no local database) - this is expected
-- Prisma client generates successfully without local DB
-- Vercel deployment auto-runs migrations on deploy
+**Key Features of New Hours Page**:
+- Month selector with nl-NL locale (e.g., "november 2025")
+- Filter by specific project or employee
+- Sort by client name, project name, hours, or budget percentage
+- Collapsible project cards show diensten underneath
+- Budget progress bars with color-coded status
+- Employee breakdown table within each dienst
 
-**Testing Notes**:
-- Visit /admin/hours, click "Sync from Simplicate" to test hours sync
-- Visit /admin/invoices, click "Sync from Simplicate" to test invoices sync
-- Both pages show empty state with sync button if no data
+**Gotchas**:
+- UserRole enum has ADMIN and TEAM_MEMBER (not EMPLOYEE)
+- Removed role filter from getEmployeesForFilter to include all users
 
 ---
 
@@ -151,31 +156,33 @@ WorkflowQueue    - Queue for async workflow processing
 
 I'm continuing work on Simplicate Automations. Here's where we left off:
 
-**Current Goal**: Implement Phase 2 Webhooks infrastructure.
+**Current Goal**: User is testing the new Hours page, awaiting feedback.
 
-**Phase 1 Complete**:
-- ✅ `/admin/contracts` page with status filtering
-- ✅ `/admin/hours` page with sync button and stats
-- ✅ `/admin/invoices` page with sync button and stats
-- ✅ `syncHours()` and `syncInvoices()` mutations
-- ✅ Hours and Invoices routers
-- ✅ New database models (ProjectMember, ProjectBudget, Expense, PurchasingInvoice, ContractTemplate, WorkflowQueue)
-- ✅ Deployed to production
+**Just Completed**:
+- ✅ Hours page redesign with project/client focus
+- ✅ Filtering by month, project, employee
+- ✅ Sorting by client, project, hours, budget %
+- ✅ Monthly breakdown showing hours per project-dienst-employee
+- ✅ Budget comparison (total usage + this month's contribution)
+- ✅ Navigation updated: Dashboard, Projects, Hours, People, Contracts, Invoices, Workflows, Automation, Settings
 
-**Next Steps - Phase 2 Webhooks**:
-1. Read `docs/project/IMPLEMENTATION-PLAN.md` for Phase 2 details
-2. Enhance `src/app/api/webhooks/simplicate/route.ts` for `project.employee.linked` event
-3. Create queue processor cron endpoint at `src/app/api/cron/process-queue/route.ts`
-4. Wire WorkflowQueue model to webhook processing
-5. Test webhook flow end-to-end
+**What User Wanted**:
+- More project/client focused (less dienst-centric)
+- Filtering and sorting features
+- See hours by month/employee/project-dienst
+- Current month hours vs budget comparison
+- Standard shadcn components only
 
-**Files to Focus On**:
-- `docs/project/IMPLEMENTATION-PLAN.md` - Full plan with Phase 2 tasks
-- `src/app/api/webhooks/simplicate/route.ts` - Webhook handler (exists)
-- `prisma/schema.prisma` - WorkflowQueue model (already added)
-- `CLAUDE.md` - Project conventions
+**Files Changed**:
+- `src/app/admin/hours/page.tsx` - Complete redesign
+- `src/server/api/routers/hours.ts` - 4 new endpoints
+- `src/app/admin/layout.tsx` - Navigation update
 
-**Production URL**: https://simplicate-automations.vercel.app/
+**Next**:
+- Await user feedback on Hours page
+- Make adjustments as needed
+
+**Production URL**: https://simplicate-automations.vercel.app/admin/hours
 
 **Commands**:
 ```bash
@@ -190,29 +197,37 @@ git add -A && git commit --no-verify -m "message" && git push  # Commit
 
 ## 📚 Previous Session Notes
 
+**Session: November 25, 2025, 4:00 PM - Hours Page Redesign**
+- Redesigned hours page with project/client focus
+- Added filtering (month, project, employee) and sorting
+- Created 4 new router endpoints
+- Updated navigation sidebar
+- Added collapsible component
+
+**Session: November 25, 2025, 3:25 PM - Phase 2 Complete**
+- Phase 2 webhooks infrastructure complete
+- Queue processor cron implemented
+- Queue monitor UI on Automation page
+
 **Session: November 25, 2025 - Phase 1 Foundation**
 - Completed all Phase 1 tasks
 - Created 3 admin pages (contracts, hours, invoices)
 - Created 2 routers (hours.ts, invoices.ts)
 - Added 6 Prisma models, 5 enums
-- Added syncHours() and syncInvoices() mutations
-- 8 files created/modified, deployed successfully
 
 **Session: November 21, 2025 - Workflow Config UI**
 - Built Workflows page UI with project selection
 - Added Settings page sync functionality
 - Fixed Vercel deployment (Neon Postgres setup)
-- Created CLAUDE.md documentation
 
 **Session: November 20, 2025 - Backend Automation**
 - Built complete backend automation engine
 - Implemented Simplicate API client
 - Created notification system (Email/Slack)
-- 25 files created, 4,661 lines added
 
 ---
 
-**Session Complexity**: Standard (8 files created/modified, Phase 1 completion)
+**Session Complexity**: Standard (4 files modified, UI redesign + router updates)
 **Build Status**: ✅ Typecheck passes
 **Deployment Status**: ✅ Vercel production deployed
 

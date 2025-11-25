@@ -18,7 +18,7 @@ A comprehensive automation system for Simplicate that handles:
 
 **Hybrid Event-Driven**:
 - Simplicate Webhooks for real-time triggers
-- Vercel Cron for scheduled tasks
+- Vercel Cron for scheduled tasks (every minute)
 - PostgreSQL for local data sync
 - Push updates back to Simplicate
 
@@ -37,62 +37,86 @@ A comprehensive automation system for Simplicate that handles:
 
 ## Implementation Phases
 
-### Phase 1: Foundation (Days 1-2) - START HERE
+### Phase 1: Foundation ✅ COMPLETE
 
-**Current Issues to Fix:**
-1. `/admin/contracts` → 404 (page doesn't exist)
-2. `/admin/hours` → 404 (page doesn't exist)
-3. `/admin/invoices` → 404 (page doesn't exist)
-4. Hours/Invoices not syncing from Simplicate
-5. Users page was showing mock data (FIXED in last session)
+**Completed:**
+- [x] Create `src/app/admin/contracts/page.tsx` with status filtering
+- [x] Create `src/app/admin/hours/page.tsx` with project/client focus
+- [x] Create `src/app/admin/invoices/page.tsx` with sync + stats
+- [x] Create `src/server/api/routers/hours.ts` with getAll, getStats, getMonthlyBreakdown, getProjectStats
+- [x] Create `src/server/api/routers/invoices.ts`
+- [x] Create `src/server/api/routers/contracts.ts`
+- [x] Add `syncHours()` to sync.ts
+- [x] Add `syncInvoices()` to sync.ts
+- [x] Update `prisma/schema.prisma` with all new models
+- [x] Dashboard with stats
+- [x] Users page (real data from DB)
+- [x] Settings page with sync buttons
+- [x] Navigation: Dashboard → Projects → Hours → People → Contracts → Invoices → Workflows → Automation → Settings
+
+### Phase 2: Webhooks ✅ COMPLETE
+
+**Completed:**
+- [x] `project.employee.linked` webhook handler
+- [x] WorkflowQueue table (database-backed)
+- [x] Queue processor cron at `/api/cron/process-queue`
+- [x] Vercel cron configuration (every minute)
+- [x] Queue monitor UI on Automation page (tabs: Logs + Queue)
+- [x] Queue endpoints: getQueue, getQueueStats, processQueueNow, addTestQueueItem
+
+### Phase 3: Contracts ⏳ IN PROGRESS
 
 **Tasks:**
-- [ ] Create `src/app/admin/contracts/page.tsx`
-- [ ] Create `src/app/admin/hours/page.tsx`
-- [ ] Create `src/app/admin/invoices/page.tsx`
-- [ ] Create `src/server/api/routers/hours.ts`
-- [ ] Add `syncHours()` to `src/server/api/routers/sync.ts`
-- [ ] Add `syncInvoices()` to `src/server/api/routers/sync.ts`
-- [ ] Update `prisma/schema.prisma` with new models
-- [ ] Run `npm run db:push && npm run db:generate`
+- [ ] Contract template management UI
+- [ ] Contract upload handler (employee uploads signed contract)
+- [ ] Email with download/upload links (via Resend)
+- [ ] Reminder escalation workflow (3, 7, 14 days)
+- [ ] Contract status tracking in admin
 
-### Phase 2: Webhooks (Days 3-4)
-- [ ] Enhance webhook handler for `project.employee.linked`
-- [ ] Create WorkflowQueue table
-- [ ] Create queue processor cron
+### Phase 4: Hours Reminders
 
-### Phase 3: Contracts (Days 5-6)
-- [ ] Contract template management
-- [ ] Contract upload handler
-- [ ] Email with download/upload links
-- [ ] Reminder escalation (3, 7, 14 days)
+**Tasks:**
+- [ ] Budget calculation from ProjectBudget (dienst level)
+- [ ] Personalized emails with hours vs budget comparison
+- [ ] Simplicate deep links for easy hour entry
+- [ ] Weekly cron endpoint for reminders
+- [ ] Admin config for reminder timing
 
-### Phase 4: Hours Reminders (Days 7-8)
-- [ ] Budget calculation from ProjectBudget
-- [ ] Personalized emails with hours vs budget
-- [ ] Simplicate deep links
-- [ ] Cron endpoint
+### Phase 5: Purchasing Invoices
 
-### Phase 5: Purchasing Invoices (Days 9-11)
-- [ ] Invoice calculation (hours + km + expenses)
-- [ ] Generate PDF option
-- [ ] Upload own invoice option
+**Tasks:**
+- [ ] Invoice calculation (hours × rate + km × rate + expenses)
+- [ ] Generate PDF option (auto-create from data)
+- [ ] Upload own invoice option (for contractors)
 - [ ] Admin approval workflow
+- [ ] Push approved invoices to Simplicate
 
-### Phase 6: Expenses (Days 12-13)
-- [ ] Expense model and router
-- [ ] KM rate configuration
-- [ ] Receipt upload
-- [ ] Approval workflow
+### Phase 6: Expenses
 
-### Phase 7: Reports (Days 14-15)
+**Tasks:**
+- [ ] Expense router and API
+- [ ] KM rate configuration per employee/project
+- [ ] Receipt upload (images/PDF)
+- [ ] Expense approval workflow
+- [ ] Expense categories management
+
+### Phase 7: Reports
+
+**Tasks:**
 - [ ] Reports router
-- [ ] Project profitability dashboard
-- [ ] Budget tracking views
+- [ ] Project profitability dashboard (revenue vs costs)
+- [ ] Budget tracking views (budget vs actual per dienst)
+- [ ] Employee utilization reports
+- [ ] Export to CSV/Excel
 
-### Phase 8: Employee Portal (Days 16-17)
-- [ ] `/workspace` layout
-- [ ] Self-service pages for contracts, hours, invoices, expenses
+### Phase 8: Employee Portal
+
+**Tasks:**
+- [ ] `/workspace` layout (employee-facing)
+- [ ] My contracts page
+- [ ] My hours overview
+- [ ] Submit invoice page
+- [ ] Expense submission page
 
 ---
 
@@ -148,12 +172,28 @@ git add -A && git commit --no-verify -m "message" && git push
 
 ## Session History
 
-### Last Session (Today)
-1. Fixed users page - was showing hardcoded mock data
-2. Created `src/server/api/routers/users.ts` with getAll, getStats, getById
-3. Updated users page to use tRPC
-4. Committed and deployed
-5. Created comprehensive implementation plan
+### Session 4 (Nov 25, 2025)
+- Hours page complete redesign with project/client focus
+- Added filtering (month, project, employee)
+- Added sorting (client, project, hours, budget %)
+- Monthly breakdown showing hours per project-dienst-employee
+- Budget comparison (total usage + this month's contribution)
+- Navigation update: Dashboard → Projects → Hours → People → Contracts → Invoices → Workflows → Automation → Settings
 
-### Next Session
-Start with Phase 1 - create the missing admin pages and add hours/invoices sync.
+### Session 3 (Nov 24, 2025)
+- Phase 2 complete: Webhooks infrastructure
+- Queue processor cron at `/api/cron/process-queue`
+- Queue monitor UI on Automation page
+
+### Session 2 (Nov 23, 2025)
+- Phase 1 complete: All admin pages created
+- Hours/Invoices sync from Simplicate
+- Dashboard with stats
+
+### Session 1 (Nov 22, 2025)
+- Fixed users page (was showing mock data)
+- Created comprehensive implementation plan
+
+### Next Steps
+- Await feedback on Hours page
+- Start Phase 3: Contract template management
