@@ -83,15 +83,19 @@ export const syncRouter = createTRPCRouter({
       // Import each employee as a user
       for (const employee of simplicateEmployees) {
         try {
+          // Get email from work_email, or fallback to person.email
+          const employeeEmail = employee.work_email || employee.person?.email || employee.email
+          const employeeName = employee.name || employee.person?.full_name || 'Unknown'
+
           // Skip employees without email
-          if (!employee.email) {
-            results.errors.push(`Skipped employee ${employee.name}: No email address`)
+          if (!employeeEmail) {
+            results.errors.push(`Skipped employee ${employeeName}: No email address`)
             continue
           }
 
           const userData = {
-            email: employee.email,
-            name: employee.name,
+            email: employeeEmail,
+            name: employeeName,
             simplicateEmployeeId: employee.id,
             role: 'TEAM_MEMBER' as const,
           }
@@ -102,7 +106,7 @@ export const syncRouter = createTRPCRouter({
           })
 
           const existingByEmail = await ctx.db.user.findUnique({
-            where: { email: employee.email },
+            where: { email: employeeEmail },
           })
 
           if (existingBySimplicateId) {
@@ -204,15 +208,20 @@ export const syncRouter = createTRPCRouter({
       // Step 3: Sync employees from Simplicate
       const simplicateEmployees = await client.getEmployees({ limit: 100 })
       for (const employee of simplicateEmployees) {
+        // Get name outside try block for error handling
+        const employeeName = employee.name || employee.person?.full_name || 'Unknown'
         try {
-          if (!employee.email) {
-            results.errors.push(`Skipped employee ${employee.name}: No email`)
+          // Get email from work_email, or fallback to person.email
+          const employeeEmail = employee.work_email || employee.person?.email || employee.email
+
+          if (!employeeEmail) {
+            results.errors.push(`Skipped employee ${employeeName}: No email`)
             continue
           }
 
           // Check if user already exists (e.g., logged-in user)
           const existingUser = await ctx.db.user.findUnique({
-            where: { email: employee.email },
+            where: { email: employeeEmail },
           })
 
           if (existingUser) {
@@ -220,7 +229,7 @@ export const syncRouter = createTRPCRouter({
             await ctx.db.user.update({
               where: { id: existingUser.id },
               data: {
-                name: employee.name,
+                name: employeeName,
                 simplicateEmployeeId: employee.id,
               },
             })
@@ -228,8 +237,8 @@ export const syncRouter = createTRPCRouter({
             // Create new user
             await ctx.db.user.create({
               data: {
-                email: employee.email,
-                name: employee.name,
+                email: employeeEmail,
+                name: employeeName,
                 simplicateEmployeeId: employee.id,
                 role: 'TEAM_MEMBER',
               },
@@ -238,7 +247,7 @@ export const syncRouter = createTRPCRouter({
           results.usersCreated++
         } catch (error) {
           const errorMessage = error instanceof Error ? error.message : 'Unknown error'
-          results.errors.push(`Employee ${employee.name}: ${errorMessage}`)
+          results.errors.push(`Employee ${employeeName}: ${errorMessage}`)
         }
       }
 

@@ -39,7 +39,13 @@ export interface SimplicateEmployee {
   id: string;
   name: string;
   email?: string;
+  work_email?: string;
   person_id?: string;
+  person?: {
+    id: string;
+    full_name?: string;
+    email?: string;
+  };
 }
 
 export interface SimplicateHours {
