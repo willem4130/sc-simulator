@@ -5,8 +5,26 @@ import {
   getRateSourceLabel,
   type RateSource,
 } from '@/lib/rates/resolver'
+import { getSimplicateClient } from '@/lib/simplicate/client'
 
 export const ratesRouter = createTRPCRouter({
+  // Debug: See raw Simplicate employee data
+  debugSimplicateEmployees: publicProcedure.query(async () => {
+    const client = getSimplicateClient()
+    const employees = await client.getEmployees()
+
+    // Return raw data with rate fields highlighted
+    return employees.map((emp) => ({
+      id: emp.id,
+      name: emp.name,
+      email: emp.work_email || emp.email,
+      type: emp.type,
+      hourly_sales_tariff: emp.hourly_sales_tariff,
+      hourly_cost_tariff: emp.hourly_cost_tariff,
+      // Include all fields to see what's available
+      _raw: emp,
+    }))
+  }),
   // Get rate overview showing hierarchy: User > Project > Service-Employee
   getRateOverview: publicProcedure.query(async ({ ctx }) => {
     // Get ALL users (not just those with rates) so we can set rates for freelancers
