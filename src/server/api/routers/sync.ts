@@ -98,6 +98,11 @@ export const syncRouter = createTRPCRouter({
             name: employeeName,
             simplicateEmployeeId: employee.id,
             role: 'TEAM_MEMBER' as const,
+            // Financial rate fields from Simplicate
+            defaultSalesRate: employee.hourly_sales_tariff || null,
+            defaultCostRate: employee.hourly_cost_tariff || null,
+            simplicateEmployeeType: employee.type?.label || null,
+            ratesSyncedAt: new Date(),
           }
 
           // Check if user exists by simplicateEmployeeId or email
@@ -116,6 +121,10 @@ export const syncRouter = createTRPCRouter({
               data: {
                 email: userData.email,
                 name: userData.name,
+                defaultSalesRate: userData.defaultSalesRate,
+                defaultCostRate: userData.defaultCostRate,
+                simplicateEmployeeType: userData.simplicateEmployeeType,
+                ratesSyncedAt: userData.ratesSyncedAt,
               },
             })
             results.updated++
@@ -126,6 +135,10 @@ export const syncRouter = createTRPCRouter({
               data: {
                 name: userData.name,
                 simplicateEmployeeId: userData.simplicateEmployeeId,
+                defaultSalesRate: userData.defaultSalesRate,
+                defaultCostRate: userData.defaultCostRate,
+                simplicateEmployeeType: userData.simplicateEmployeeType,
+                ratesSyncedAt: userData.ratesSyncedAt,
               },
             })
             results.updated++
@@ -415,7 +428,7 @@ export const syncRouter = createTRPCRouter({
             hours: hours.hours,
             date: parsedDate,
             description: hours.description || null,
-            hourlyRate: hours.tariff || hours.hourly_rate || null,
+            salesRate: hours.tariff || hours.hourly_rate || null,
             billable: hours.billable ?? true,
             status: mapHoursStatus(hours.status),
           }

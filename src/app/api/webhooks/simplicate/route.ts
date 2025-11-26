@@ -212,7 +212,7 @@ async function handleHoursEvent(payload: SimplicateWebhookPayload) {
           hours: hoursData.hours,
           date: new Date(hoursData.date),
           description: hoursData.description,
-          hourlyRate: hoursData.hourly_rate,
+          salesRate: hoursData.hourly_rate,
           status: 'SUBMITTED',
         },
       });

@@ -46,6 +46,14 @@ export interface SimplicateEmployee {
     full_name?: string;
     email?: string;
   };
+  // Financial rate fields
+  hourly_sales_tariff?: number;
+  hourly_cost_tariff?: number;
+  // Employee type (internal/external)
+  type?: {
+    id?: string;
+    label?: string;
+  };
 }
 
 export interface SimplicateHours {

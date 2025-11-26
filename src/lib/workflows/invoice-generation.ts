@@ -146,7 +146,7 @@ async function generateInvoice(options: {
 
   for (const entry of project.hoursEntries) {
     totalHours += entry.hours;
-    totalAmount += entry.hours * (entry.hourlyRate || 0);
+    totalAmount += entry.hours * (entry.salesRate || 0);
   }
 
   console.log('[Invoice Generation] Project:', {

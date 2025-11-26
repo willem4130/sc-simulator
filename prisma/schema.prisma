@@ -59,6 +59,13 @@ enum QueueStatus {
   FAILED
 }
 
+// Employee type for rate calculations
+enum EmployeeType {
+  CO_OWNER      // Co-owners who invoice through their BV
+  FREELANCER    // External freelancers with variable rates
+  INTERNAL      // Internal employees (salaried)
+}
+
 model User {
   id                    String                 @id @default(cuid())
   email                 String                 @unique
@@ -72,6 +79,17 @@ model User {
   // Simplicate integration
   simplicateEmployeeId  String?                @unique
 
+  // Employee type and financial rates (synced from Simplicate)
+  employeeType          EmployeeType?
+  defaultSalesRate      Float?                 // from Simplicate hourly_sales_tariff
+  defaultCostRate       Float?                 // from Simplicate hourly_cost_tariff
+  simplicateEmployeeType String?               // Simplicate type.label (internal/external)
+
+  // Manual rate overrides (take precedence over synced values)
+  salesRateOverride     Float?
+  costRateOverride      Float?
+  ratesSyncedAt         DateTime?
+
   // Relations
   accounts              Account[]
   sessions              Session[]
@@ -82,6 +100,7 @@ model User {
   projectMembers        ProjectMember[]
   expenses              Expense[]
   purchasingInvoices    PurchasingInvoice[]
+  serviceEmployeeRates  ServiceEmployeeRate[]
 
   @@index([email])
   @@index([simplicateEmployeeId])
@@ -198,15 +217,46 @@ model ProjectService {
   invoiceMethod       String?       // "Hours", "Fixed", etc.
   trackHours          Boolean       @default(true)
 
+  // Hour type tariffs from Simplicate (for rate resolution)
+  hourTypeTariffs     Json?         // [{hourTypeId, tariff, budgetedAmount, billable}]
+
   createdAt           DateTime      @default(now())
   updatedAt           DateTime      @updatedAt
 
   // Relations
   project             Project       @relation(fields: [projectId], references: [id], onDelete: Cascade)
   hoursEntries        HoursEntry[]
+  employeeRates       ServiceEmployeeRate[]
 
   @@index([projectId])
   @@index([simplicateServiceId])
+}
+
+// ==========================================
+// SERVICE-EMPLOYEE RATE OVERRIDES
+// ==========================================
+
+model ServiceEmployeeRate {
+  id                  String         @id @default(cuid())
+  projectServiceId    String
+  userId              String
+
+  // Rate overrides at service-employee level (most specific)
+  salesRate           Float?
+  costRate            Float?
+  salesRateSource     String?        // "simplicate" | "manual"
+  costRateSource      String?        // "simplicate" | "manual"
+
+  createdAt           DateTime       @default(now())
+  updatedAt           DateTime       @updatedAt
+
+  // Relations
+  projectService      ProjectService @relation(fields: [projectServiceId], references: [id], onDelete: Cascade)
+  user                User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([projectServiceId, userId])
+  @@index([projectServiceId])
+  @@index([userId])
 }
 
 // ==========================================
@@ -278,8 +328,15 @@ model HoursEntry {
   hours             Float
   date              DateTime
   description       String?
-  hourlyRate        Float?
   billable          Boolean         @default(true)
+
+  // Financial tracking
+  salesRate         Float?          // Hourly billing rate (client)
+  costRate          Float?          // Hourly cost rate (employee)
+  revenue           Float?          // hours * salesRate
+  cost              Float?          // hours * costRate
+  margin            Float?          // revenue - cost
+  rateSource        String?         // "service-employee" | "project-member" | "user-override" | "user-default" | "simplicate"
 
   // Status
   status            HoursStatus     @default(PENDING)
@@ -298,6 +355,8 @@ model HoursEntry {
   projectService    ProjectService? @relation(fields: [projectServiceId], references: [id], onDelete: SetNull)
   invoice           Invoice?        @relation(fields: [invoiceId], references: [id])
   invoiceId         String?
+  purchaseInvoice   PurchasingInvoice? @relation(fields: [purchaseInvoiceId], references: [id])
+  purchaseInvoiceId String?
 
   @@index([projectId])
   @@index([userId])
@@ -583,8 +642,14 @@ model ProjectMember {
   simplicateServiceId String?  @unique
 
   role                String?
-  hourlyRate          Float?
+  hourlyRate          Float?   // Legacy field - use salesRate
   budgetedHours       Float?
+
+  // Financial rates for this employee on this project
+  salesRate           Float?   // Client billing rate (override for this project)
+  costRate            Float?   // Employee cost rate (override for this project)
+  salesRateSource     String?  // "simplicate" | "manual"
+  costRateSource      String?  // "simplicate" | "manual"
 
   joinedAt            DateTime @default(now())
   leftAt              DateTime?
@@ -685,6 +750,7 @@ model PurchasingInvoice {
 
   project               Project                  @relation(fields: [projectId], references: [id], onDelete: Cascade)
   user                  User                     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  hoursEntries          HoursEntry[]
 
   @@index([projectId])
   @@index([userId])

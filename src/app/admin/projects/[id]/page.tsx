@@ -336,7 +336,7 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
                             {entry.hours.toFixed(1)}h
                           </TableCell>
                           <TableCell className="text-right text-muted-foreground">
-                            {entry.hourlyRate ? `$${entry.hourlyRate}/h` : '-'}
+                            {entry.salesRate ? `€${entry.salesRate}/h` : '-'}
                           </TableCell>
                           <TableCell>
                             <Badge
