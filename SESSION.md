@@ -1,6 +1,6 @@
 # Session State - Simplicate Automation System
 
-**Last Updated**: November 26, 2025, 5:30 PM
+**Last Updated**: November 26, 2025, 5:10 PM
 **Session Type**: Complex
 **Project**: Simplicate Automation System - Financial Tracking Phase
 
@@ -8,7 +8,7 @@
 
 ## 🎯 Current Objective
 
-Building a comprehensive Financial Tracking System to track revenue, costs, and margins at project-service-employee level. Syncing employee rates from Simplicate (hourly_cost_tariff, hourly_sales_tariff).
+Building a comprehensive Financial Tracking System to track revenue, costs, and margins at project-service-employee level. Phase 1 schema is complete, rate sync is implemented with parsing fix.
 
 ---
 
@@ -16,33 +16,36 @@ Building a comprehensive Financial Tracking System to track revenue, costs, and 
 
 ### ✅ Completed Tasks
 
-- **Financial Tracking Documentation - COMPLETE**
-  - Created `docs/project/FINANCIAL-TRACKING-PLAN.md` (8-phase plan)
-  - Created `docs/project/FINANCIAL-TRACKING-TASKS.md` (task tracking)
-  - Updated `CLAUDE.md` with Financial Tracking phase
-
-- **Phase 0: Hours Sync Date Bug Fix - COMPLETE**
-  - Fixed date validation in syncHours() to skip Invalid Date entries
-  - Deployed to production
-
-- **Phase 1: Schema Extensions - PARTIALLY COMPLETE**
+- **Phase 1: Schema Extensions - COMPLETE**
   - Added `EmployeeType` enum (CO_OWNER, FREELANCER, INTERNAL)
-  - Added User financial fields: `employeeType`, `defaultSalesRate`, `defaultCostRate`, `salesRateOverride`, `costRateOverride`, `ratesSyncedAt`, `simplicateEmployeeType`
-  - Updated ProjectMember: added `salesRate`, `costRate`, `salesRateSource`, `costRateSource`
+  - Added User financial fields: defaultSalesRate, defaultCostRate, overrides
+  - Added HoursEntry fields: salesRate, costRate, revenue, cost, margin, rateSource, purchaseInvoiceId
+  - Created ServiceEmployeeRate model
+  - Added ProjectService hourTypeTariffs field
+  - Ran db:push successfully
+
+- **Phase 1: Employee Rate Sync - COMPLETE**
+  - Updated SimplicateEmployee interface with rate fields
+  - Updated syncEmployees() to sync hourly_sales_tariff, hourly_cost_tariff, type
+  - **Fixed critical bug**: Simplicate returns rates as STRINGS ("135.00"), not numbers
+  - Added proper parsing with parseFloat()
+
+- **Rates Page & UI - COMPLETE**
+  - Created `/admin/rates` page with tabs (User/Project/Service rates)
+  - Added rates router with getRateOverview, getProjectRates
+  - Added sync button directly on Rates page
+  - Added rate columns (Sales Rate, Cost Rate, Type) to People page
+  - Reordered navigation: Projects → People → Hours → Rates → Contracts
 
 ### 🚧 In Progress
 
-- **Phase 1: Schema Extensions (remaining)**
-  - Need to add HoursEntry financial fields (revenue, cost, margin, rateSource)
-  - Need to create ServiceEmployeeRate model
-  - Need to run db:push
+- **Test employee sync**: Click "Sync Employee Rates" on Rates page to verify rates appear
 
 ### 📋 Pending Tasks
 
-- Phase 1: Update syncEmployees() for rate fields
-- Phase 1: Update SimplicateEmployee interface
-- Phase 2: Create rate resolution system
-- Phase 3: Enhanced hours sync with financials
+- Re-sync hours to populate salesRate from tariff
+- Phase 2: Create rate resolution system (src/lib/rates/resolver.ts)
+- Phase 3: Enhanced hours sync with revenue/cost/margin calculations
 - Phase 4: Financial dashboard (/admin/financials)
 - Phase 5-8: Hours enhancement, employee views, invoice matching, rate UI
 
@@ -55,74 +58,76 @@ Building a comprehensive Financial Tracking System to track revenue, costs, and 
 - **Rationale**: Most specific rate takes precedence
 - **Impact**: Flexible rate management at any level
 
-**Dual Rate Model**
-- **Choice**: Store both salesRate (revenue) and costRate (cost) at each level
-- **Rationale**: Need both for margin calculations
-- **Impact**: Complete financial tracking
+**Simplicate Rate Parsing**
+- **Choice**: Parse rate strings to floats, filter out zero values
+- **Rationale**: Simplicate returns `hourly_cost_tariff: "135.00"` as string, not number
+- **Impact**: Proper storage and display of rates
 
-**Co-owner Purchase Rate**
-- **Choice**: Default 10% discount from sales rate, with manual override
-- **Rationale**: User's business model requires different rates for internal BV invoicing
-- **Impact**: Accurate margin tracking for co-owners
-
-**Simplicate Rate Sync**
-- **Choice**: Sync hourly_cost_tariff → defaultCostRate, hourly_sales_tariff → defaultSalesRate
-- **Rationale**: Simplicate is source of truth, app allows overrides
-- **Impact**: Rates auto-populate but can be manually adjusted
+**Navigation Order**
+- **Choice**: Projects → People → Hours → Rates → Contracts
+- **Rationale**: Logical flow for financial tracking workflow
+- **Impact**: Better UX for rate management
 
 ---
 
 ## 📁 Files Modified
 
 ### Created
-- `docs/project/FINANCIAL-TRACKING-PLAN.md` - Full 8-phase implementation plan
-- `docs/project/FINANCIAL-TRACKING-TASKS.md` - Task progress tracking
+- `src/app/admin/rates/page.tsx` - Rates page with tabs for User/Project/Service
+- `src/server/api/routers/rates.ts` - Rates router with getRateOverview, getProjectRates
 
 ### Modified
-- `CLAUDE.md` - Added Financial Tracking phase, documentation references
-- `prisma/schema.prisma` - Added EmployeeType enum, User financial fields, ProjectMember rate fields
-- `src/server/api/routers/sync.ts` - Fixed date validation in syncHours()
+- `prisma/schema.prisma` - Complete Phase 1 schema (HoursEntry, ServiceEmployeeRate, etc.)
+- `src/server/api/routers/sync.ts` - Rate sync with string→float parsing
+- `src/lib/simplicate/client.ts` - SimplicateEmployee interface with rate fields
+- `src/app/admin/users/page.tsx` - Added rate columns
+- `src/app/admin/layout.tsx` - Reordered navigation, added Rates link
+- `src/server/api/root.ts` - Registered rates router
+- `docs/project/FINANCIAL-TRACKING-TASKS.md` - Updated Phase 1 tasks as complete
 
 ---
 
-## 🏗️ Schema Changes
+## 🏗️ Schema Changes (Complete)
 
-**New Enum**:
+**New Model**:
 ```prisma
-enum EmployeeType {
-  CO_OWNER
-  FREELANCER
-  INTERNAL
+model ServiceEmployeeRate {
+  id                  String         @id @default(cuid())
+  projectServiceId    String
+  userId              String
+  salesRate           Float?
+  costRate            Float?
+  salesRateSource     String?
+  costRateSource      String?
+  @@unique([projectServiceId, userId])
 }
 ```
 
-**User Model Additions**:
-- `employeeType`, `defaultSalesRate`, `defaultCostRate`
-- `salesRateOverride`, `costRateOverride`, `ratesSyncedAt`
-- `simplicateEmployeeType`, `serviceEmployeeRates` relation
+**HoursEntry Additions**:
+- `salesRate`, `costRate`, `revenue`, `cost`, `margin`
+- `rateSource` (where rate came from)
+- `purchaseInvoiceId` (link to PurchasingInvoice)
 
-**ProjectMember Additions**:
-- `salesRate`, `costRate`, `salesRateSource`, `costRateSource`
-
-**Still Need to Add**:
-- HoursEntry: `costRate`, `revenue`, `cost`, `margin`, `rateSource`, `purchaseInvoiceId`
-- ServiceEmployeeRate model (most granular rate level)
-- ProjectService: `hourTypeTariffs` JSON, `employeeRates` relation
+**ProjectService Additions**:
+- `hourTypeTariffs` JSON
+- `employeeRates` relation
 
 ---
 
 ## 💡 Context & Notes
 
-**Simplicate API Rate Fields**:
-- Employee: `hourly_cost_tariff`, `hourly_sales_tariff`, `type.label`
-- Hours: `tariff`, `employee_tariff`, `type_tariff`
-- Services: `hour_types[].tariff`, `hour_types[].budgeted_amount`
-
-**Key Documentation**:
-- Full plan: `docs/project/FINANCIAL-TRACKING-PLAN.md`
-- Task tracking: `docs/project/FINANCIAL-TRACKING-TASKS.md`
+**Critical Discovery**:
+- Simplicate API returns `hourly_sales_tariff` and `hourly_cost_tariff` as **strings** ("135.00")
+- Must use `parseFloat(String(value))` to convert
+- Willem: cost rate 135, sales rate 0
+- Bram: cost rate 100
 
 **Production URL**: https://simplicate-automations.vercel.app/
+
+**To Test Sync**:
+1. Go to /admin/rates
+2. Click "Sync Employee Rates"
+3. Check if rates appear (Willem should show €135 cost rate)
 
 ---
 
@@ -139,31 +144,28 @@ I'm continuing work on the Financial Tracking System for Simplicate Automations.
 - `docs/project/FINANCIAL-TRACKING-TASKS.md` (progress)
 - `CLAUDE.md` (project overview)
 
-**Current Goal**: Complete Phase 1 schema extensions and employee rate sync.
+**Current Goal**: Test rate sync, then start Phase 2 rate resolution.
 
 **Just Completed**:
-- ✅ Documentation files created
-- ✅ Phase 0: Fixed hours sync date bug
-- ✅ Added EmployeeType enum to schema
-- ✅ Added User financial fields (defaultSalesRate, defaultCostRate, overrides)
-- ✅ Added ProjectMember rate fields (salesRate, costRate, sources)
+- ✅ Phase 1: Schema complete (HoursEntry financial fields, ServiceEmployeeRate)
+- ✅ Phase 1: Employee rate sync with parsing fix
+- ✅ Rates page (/admin/rates) with sync button
+- ✅ Rate columns on People page
+- ✅ Navigation reorder: Projects → People → Hours → Rates → Contracts
 
-**Next Steps** (in order):
-1. Add HoursEntry financial fields to schema (costRate, revenue, cost, margin, rateSource)
-2. Create ServiceEmployeeRate model in schema
-3. Run `npm run db:push` to apply schema changes
-4. Update SimplicateEmployee interface in client.ts
-5. Update syncEmployees() to fetch/store rate fields
+**Important Fix Applied**:
+- Simplicate returns rates as STRINGS ("135.00"), not numbers
+- Added parseFloat() parsing in syncEmployees()
+
+**Next Steps**:
+1. Test rate sync on production (click "Sync Employee Rates" on Rates page)
+2. Re-sync hours to populate salesRate
+3. Start Phase 2: Rate resolution system (src/lib/rates/resolver.ts)
 
 **Key Files**:
-- `prisma/schema.prisma` - Schema changes (partially done)
-- `src/server/api/routers/sync.ts` - Sync logic to update
-- `src/lib/simplicate/client.ts` - API types to update
-
-**Commands**:
-- `npm run typecheck` after edits
-- `npm run db:push` after schema changes
-- `/commit` and `npx vercel --prod --yes` after milestones
+- `src/server/api/routers/rates.ts` - Rates queries
+- `src/app/admin/rates/page.tsx` - Rates UI
+- `src/server/api/routers/sync.ts` - Sync with rate parsing
 
 ---
 
@@ -171,28 +173,25 @@ I'm continuing work on the Financial Tracking System for Simplicate Automations.
 
 ## 📚 Previous Session Notes
 
+**Session: November 26, 2025, 5:10 PM - Rate Sync & Rates Page**
+- Completed Phase 1 schema (HoursEntry, ServiceEmployeeRate)
+- Fixed rate parsing (strings to floats)
+- Created Rates page with sync button
+- Added rate columns to People page
+- Discovered Simplicate returns rates as strings
+
 **Session: November 26, 2025, 5:30 PM - Financial Tracking Start**
 - Created comprehensive Financial Tracking plan (8 phases)
 - Fixed hours sync date bug (Invalid Date handling)
 - Started schema extensions for financial tracking
-- Added EmployeeType enum and User/ProjectMember rate fields
 
 **Session: November 26, 2025, 4:50 PM - Multi-Select & Presets**
 - Added multi-select filters to Hours page
 - Created filter presets system with database storage
-- Fixed hours sync (pagination, date field)
-- Fixed favicon 404
-- Expanded Simplicate API client
-
-**Session: November 25, 2025 - Hours Page & Phase 2**
-- Redesigned hours page with project/client focus
-- Phase 2 webhooks infrastructure complete
-- Queue processor cron implemented
-- Added 6 Prisma models, 5 enums
 
 ---
 
-**Session Complexity**: Complex (major feature - Financial Tracking System)
+**Session Complexity**: Complex (Financial Tracking Phase 1 Complete)
 **Build Status**: ✅ Typecheck passes
 **Deployment Status**: ✅ Latest deployed to Vercel
 
