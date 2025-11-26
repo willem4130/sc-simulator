@@ -8,22 +8,107 @@ import {
 import { getSimplicateClient } from '@/lib/simplicate/client'
 
 export const ratesRouter = createTRPCRouter({
-  // Debug: See raw Simplicate employee data
-  debugSimplicateEmployees: publicProcedure.query(async () => {
+  // Debug: Comprehensive rate search across all Simplicate endpoints
+  debugSimplicateRates: publicProcedure.query(async () => {
     const client = getSimplicateClient()
+
+    // 1. Get all employees
     const employees = await client.getEmployees()
 
-    // Return raw data with rate fields highlighted
-    return employees.map((emp) => ({
-      id: emp.id,
-      name: emp.name,
-      email: emp.work_email || emp.email,
-      type: emp.type,
-      hourly_sales_tariff: emp.hourly_sales_tariff,
-      hourly_cost_tariff: emp.hourly_cost_tariff,
-      // Include all fields to see what's available
-      _raw: emp,
-    }))
+    // 2. Get all hours entries to see tariffs used
+    const hours = await client.getAllHours()
+
+    // 3. Get all services to see service-level tariffs
+    const services = await client.getServices()
+
+    // 4. Get all projects to check for project-employee assignments
+    const projects = await client.getProjects()
+
+    // Build a map of rates found per employee from different sources
+    const employeeRates: Record<string, {
+      name: string
+      type: string
+      employeeRecord: { salesTariff: string | number | null; costTariff: string | number | null }
+      hoursEntries: Array<{ projectName: string; serviceName: string; tariff: number | null; date: string }>
+      projectAssignments: Array<{ projectName: string; hourlyRate: number | null }>
+    }> = {}
+
+    // Initialize from employee records
+    for (const emp of employees) {
+      employeeRates[emp.id] = {
+        name: emp.name,
+        type: emp.type?.label || 'unknown',
+        employeeRecord: {
+          salesTariff: emp.hourly_sales_tariff,
+          costTariff: emp.hourly_cost_tariff,
+        },
+        hoursEntries: [],
+        projectAssignments: [],
+      }
+    }
+
+    // Add rates from hours entries
+    for (const h of hours) {
+      const empId = h.employee?.id || h.employee_id
+      if (empId && employeeRates[empId]) {
+        // Only add unique project/service/tariff combinations
+        const entry = {
+          projectName: h.project?.name || 'Unknown Project',
+          serviceName: h.projectservice?.name || 'Unknown Service',
+          tariff: h.tariff || h.hourly_rate || null,
+          date: h.start_date || h.date || 'unknown',
+        }
+        // Check if we already have this combo
+        const exists = employeeRates[empId].hoursEntries.some(
+          (e) => e.projectName === entry.projectName &&
+                 e.serviceName === entry.serviceName &&
+                 e.tariff === entry.tariff
+        )
+        if (!exists && entry.tariff) {
+          employeeRates[empId].hoursEntries.push(entry)
+        }
+      }
+    }
+
+    // Check project employees for assignments with rates
+    for (const project of projects) {
+      try {
+        const projectEmployees = await client.getProjectEmployees(project.id)
+        for (const pe of projectEmployees) {
+          const empId = pe.employee?.id
+          if (empId && employeeRates[empId]) {
+            employeeRates[empId].projectAssignments.push({
+              projectName: project.name,
+              hourlyRate: pe.hourly_rate || null,
+            })
+          }
+        }
+      } catch {
+        // Some projects might not have employees
+      }
+    }
+
+    // Return summary focused on external employees (freelancers)
+    const freelancers = Object.values(employeeRates).filter(
+      (e) => e.type === 'external'
+    )
+
+    const internalEmployees = Object.values(employeeRates).filter(
+      (e) => e.type === 'internal'
+    )
+
+    return {
+      summary: {
+        totalEmployees: employees.length,
+        totalHoursEntries: hours.length,
+        totalServices: services.length,
+        totalProjects: projects.length,
+      },
+      freelancers,
+      internalEmployees,
+      // Also return unique tariffs found in hours
+      uniqueTariffsInHours: [...new Set(hours.map((h) => h.tariff || h.hourly_rate).filter(Boolean))].sort((a, b) => (a as number) - (b as number)),
+    }
   }),
   // Get rate overview showing hierarchy: User > Project > Service-Employee
   getRateOverview: publicProcedure.query(async ({ ctx }) => {
