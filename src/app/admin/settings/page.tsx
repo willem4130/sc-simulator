@@ -13,7 +13,7 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { Badge } from '@/components/ui/badge'
-import { Bell, Lock, Palette, Globe, Database, Shield, RefreshCw, Users, AlertTriangle } from 'lucide-react'
+import { Bell, Lock, Palette, Globe, Database, Shield, RefreshCw, Users, AlertTriangle, Clock, FileText, Briefcase } from 'lucide-react'
 import { api } from '@/trpc/react'
 import { useState, useEffect } from 'react'
 
@@ -21,6 +21,9 @@ export default function SettingsPage() {
   // Simplicate Sync state
   const [isSyncingProjects, setIsSyncingProjects] = useState(false)
   const [isSyncingEmployees, setIsSyncingEmployees] = useState(false)
+  const [isSyncingServices, setIsSyncingServices] = useState(false)
+  const [isSyncingHours, setIsSyncingHours] = useState(false)
+  const [isSyncingInvoices, setIsSyncingInvoices] = useState(false)
   const [isResetting, setIsResetting] = useState(false)
   const [syncMessage, setSyncMessage] = useState<string | null>(null)
 
@@ -100,6 +103,52 @@ export default function SettingsPage() {
     },
   })
 
+  const syncServices = api.sync.syncServices.useMutation({
+    onSuccess: (data) => {
+      setIsSyncingServices(false)
+      setSyncMessage(
+        `✅ Services sync complete! Created: ${data.created}, Updated: ${data.updated}, Skipped: ${data.skipped}`
+      )
+      setTimeout(() => setSyncMessage(null), 10000)
+    },
+    onError: (error) => {
+      setIsSyncingServices(false)
+      setSyncMessage(`❌ Services sync failed: ${error.message}`)
+      setTimeout(() => setSyncMessage(null), 10000)
+    },
+  })
+
+  const syncHours = api.sync.syncHours.useMutation({
+    onSuccess: (data) => {
+      setIsSyncingHours(false)
+      const financialsInfo = data.financialsCalculated ? ` (${data.financialsCalculated} with financials)` : ''
+      setSyncMessage(
+        `✅ Hours sync complete! Created: ${data.created}, Updated: ${data.updated}${financialsInfo}`
+      )
+      setTimeout(() => setSyncMessage(null), 10000)
+    },
+    onError: (error) => {
+      setIsSyncingHours(false)
+      setSyncMessage(`❌ Hours sync failed: ${error.message}`)
+      setTimeout(() => setSyncMessage(null), 10000)
+    },
+  })
+
+  const syncInvoices = api.sync.syncInvoices.useMutation({
+    onSuccess: (data) => {
+      setIsSyncingInvoices(false)
+      setSyncMessage(
+        `✅ Invoices sync complete! Created: ${data.created}, Updated: ${data.updated}, Skipped: ${data.skipped}`
+      )
+      setTimeout(() => setSyncMessage(null), 10000)
+    },
+    onError: (error) => {
+      setIsSyncingInvoices(false)
+      setSyncMessage(`❌ Invoices sync failed: ${error.message}`)
+      setTimeout(() => setSyncMessage(null), 10000)
+    },
+  })
+
   const handleSyncProjects = () => {
     setIsSyncingProjects(true)
     setSyncMessage(null)
@@ -111,6 +160,26 @@ export default function SettingsPage() {
     setSyncMessage(null)
     syncEmployees.mutate()
   }
+
+  const handleSyncServices = () => {
+    setIsSyncingServices(true)
+    setSyncMessage(null)
+    syncServices.mutate()
+  }
+
+  const handleSyncHours = () => {
+    setIsSyncingHours(true)
+    setSyncMessage(null)
+    syncHours.mutate()
+  }
+
+  const handleSyncInvoices = () => {
+    setIsSyncingInvoices(true)
+    setSyncMessage(null)
+    syncInvoices.mutate()
+  }
+
+  const isSyncing = isSyncingProjects || isSyncingEmployees || isSyncingServices || isSyncingHours || isSyncingInvoices || isResetting
 
   // Reset and sync mutation
   const resetAndSync = api.sync.resetAndSync.useMutation({
@@ -260,7 +329,7 @@ export default function SettingsPage() {
                   Total projects: {syncStatus?.totalProjects || 0}
                 </p>
               </div>
-              <Button onClick={handleSyncProjects} disabled={isSyncingProjects || isSyncingEmployees} size="sm">
+              <Button onClick={handleSyncProjects} disabled={isSyncing} size="sm">
                 {isSyncingProjects ? (
                   <>
                     <RefreshCw className="mr-2 h-4 w-4 animate-spin" />
@@ -286,7 +355,7 @@ export default function SettingsPage() {
                   Synced employees: {syncStatus?.syncedUsers || 0} / {syncStatus?.totalUsers || 0} users
                 </p>
               </div>
-              <Button onClick={handleSyncEmployees} disabled={isSyncingProjects || isSyncingEmployees} size="sm">
+              <Button onClick={handleSyncEmployees} disabled={isSyncing} size="sm">
                 {isSyncingEmployees ? (
                   <>
                     <RefreshCw className="mr-2 h-4 w-4 animate-spin" />
@@ -296,6 +365,84 @@ export default function SettingsPage() {
                   <>
                     <Users className="mr-2 h-4 w-4" />
                     Sync Employees
+                  </>
+                )}
+              </Button>
+            </div>
+
+            {/* Services Sync */}
+            <div className="flex items-center justify-between rounded-lg border p-4">
+              <div className="space-y-0.5">
+                <Label className="flex items-center gap-2">
+                  <Briefcase className="h-4 w-4" />
+                  Services (Diensten)
+                </Label>
+                <p className="text-sm text-muted-foreground">
+                  Project services with budgets and hourly rates
+                </p>
+              </div>
+              <Button onClick={handleSyncServices} disabled={isSyncing} size="sm">
+                {isSyncingServices ? (
+                  <>
+                    <RefreshCw className="mr-2 h-4 w-4 animate-spin" />
+                    Syncing...
+                  </>
+                ) : (
+                  <>
+                    <Briefcase className="mr-2 h-4 w-4" />
+                    Sync Services
+                  </>
+                )}
+              </Button>
+            </div>
+
+            {/* Hours Sync */}
+            <div className="flex items-center justify-between rounded-lg border p-4">
+              <div className="space-y-0.5">
+                <Label className="flex items-center gap-2">
+                  <Clock className="h-4 w-4" />
+                  Hours
+                </Label>
+                <p className="text-sm text-muted-foreground">
+                  Hours entries with revenue, cost, and margin calculations
+                </p>
+              </div>
+              <Button onClick={handleSyncHours} disabled={isSyncing} size="sm">
+                {isSyncingHours ? (
+                  <>
+                    <RefreshCw className="mr-2 h-4 w-4 animate-spin" />
+                    Syncing...
+                  </>
+                ) : (
+                  <>
+                    <Clock className="mr-2 h-4 w-4" />
+                    Sync Hours
+                  </>
+                )}
+              </Button>
+            </div>
+
+            {/* Invoices Sync */}
+            <div className="flex items-center justify-between rounded-lg border p-4">
+              <div className="space-y-0.5">
+                <Label className="flex items-center gap-2">
+                  <FileText className="h-4 w-4" />
+                  Invoices
+                </Label>
+                <p className="text-sm text-muted-foreground">
+                  Sales invoices from Simplicate
+                </p>
+              </div>
+              <Button onClick={handleSyncInvoices} disabled={isSyncing} size="sm">
+                {isSyncingInvoices ? (
+                  <>
+                    <RefreshCw className="mr-2 h-4 w-4 animate-spin" />
+                    Syncing...
+                  </>
+                ) : (
+                  <>
+                    <FileText className="mr-2 h-4 w-4" />
+                    Sync Invoices
                   </>
                 )}
               </Button>
@@ -317,7 +464,7 @@ export default function SettingsPage() {
                 </div>
                 <Button
                   onClick={handleResetAndSync}
-                  disabled={isSyncingProjects || isSyncingEmployees || isResetting}
+                  disabled={isSyncing}
                   variant="destructive"
                   size="sm"
                 >
@@ -343,7 +490,10 @@ export default function SettingsPage() {
               </p>
               <ul className="list-inside list-disc space-y-1">
                 <li><strong>Projects:</strong> Names, descriptions, clients, status, dates, project numbers</li>
-                <li><strong>Employees:</strong> Names, email addresses, linked to Simplicate employee IDs</li>
+                <li><strong>Employees:</strong> Names, emails, cost rates (from timetables)</li>
+                <li><strong>Services:</strong> Project services with budgets and default rates</li>
+                <li><strong>Hours:</strong> Time entries with revenue, cost, and margin calculations</li>
+                <li><strong>Invoices:</strong> Sales invoices with amounts and status</li>
               </ul>
             </div>
           </CardContent>
