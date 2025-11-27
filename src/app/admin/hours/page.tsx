@@ -45,7 +45,6 @@ import {
 import {
   Clock,
   Loader2,
-  RefreshCw,
   ChevronDown,
   ChevronRight,
   Building2,
@@ -62,6 +61,7 @@ import {
   X,
   Library,
   Check,
+  RefreshCw,
 } from 'lucide-react'
 import { api } from '@/trpc/react'
 import { useState, useEffect, useCallback } from 'react'
@@ -133,8 +133,6 @@ export default function HoursPage() {
   const { data: presets, refetch: refetchPresets } = api.filterPresets.getAll.useQuery({ page: 'hours' })
   const { data: defaultPreset } = api.filterPresets.getDefault.useQuery({ page: 'hours' })
 
-  const syncHours = api.sync.syncHours.useMutation()
-  const syncServices = api.sync.syncServices.useMutation()
   const createPreset = api.filterPresets.create.useMutation()
   const updatePreset = api.filterPresets.update.useMutation()
   const deletePreset = api.filterPresets.delete.useMutation()
@@ -154,18 +152,6 @@ export default function HoursPage() {
       })
     }
   }, [defaultPreset])
-
-  const handleSyncAll = async () => {
-    try {
-      await syncServices.mutateAsync()
-      await syncHours.mutateAsync()
-      utils.hours.invalidate()
-    } catch (error) {
-      console.error('Failed to sync:', error)
-    }
-  }
-
-  const isSyncing = syncHours.isPending || syncServices.isPending
 
   const toggleProject = (projectId: string) => {
     setExpandedProjects(prev => {
@@ -328,19 +314,9 @@ export default function HoursPage() {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-3xl font-bold tracking-tight">Hours Overview</h1>
-          <p className="text-muted-foreground">Hours by project, dienst and employee</p>
-        </div>
-        <Button onClick={handleSyncAll} disabled={isSyncing}>
-          {isSyncing ? (
-            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-          ) : (
-            <RefreshCw className="mr-2 h-4 w-4" />
-          )}
-          Sync All
-        </Button>
+      <div>
+        <h1 className="text-3xl font-bold tracking-tight">Hours Overview</h1>
+        <p className="text-muted-foreground">Hours by project, dienst and employee</p>
       </div>
 
       {/* Preset Bar */}
@@ -711,10 +687,6 @@ export default function HoursPage() {
                 {filters.projects.length > 0 && ' in selected projects'}
                 {filters.employees.length > 0 && ' by selected employees'}
               </p>
-              <Button variant="outline" className="mt-4" onClick={handleSyncAll} disabled={isSyncing}>
-                {isSyncing ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <RefreshCw className="mr-2 h-4 w-4" />}
-                Sync Hours
-              </Button>
             </div>
           ) : (
             <div className="space-y-2">

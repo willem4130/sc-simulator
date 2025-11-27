@@ -30,7 +30,6 @@ import {
   MoreHorizontal,
   FileText,
   Loader2,
-  RefreshCw,
   CheckCircle,
   XCircle,
   Send,
@@ -61,20 +60,8 @@ export default function InvoicesPage() {
   })
   const { data: stats } = api.invoices.getStats.useQuery()
 
-  const syncInvoices = api.sync.syncInvoices.useMutation()
-  const utils = api.useUtils()
-
   const invoices = invoicesData?.invoices ?? []
   const pagination = invoicesData?.pagination
-
-  const handleSync = async () => {
-    try {
-      await syncInvoices.mutateAsync()
-      utils.invoices.invalidate()
-    } catch (error) {
-      console.error('Failed to sync invoices:', error)
-    }
-  }
 
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat('nl-NL', {
@@ -86,19 +73,9 @@ export default function InvoicesPage() {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-3xl font-bold tracking-tight">Invoices</h1>
-          <p className="text-muted-foreground">Manage invoices and billing</p>
-        </div>
-        <Button onClick={handleSync} disabled={syncInvoices.isPending}>
-          {syncInvoices.isPending ? (
-            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-          ) : (
-            <RefreshCw className="mr-2 h-4 w-4" />
-          )}
-          Sync from Simplicate
-        </Button>
+      <div>
+        <h1 className="text-3xl font-bold tracking-tight">Invoices</h1>
+        <p className="text-muted-foreground">Manage invoices and billing</p>
       </div>
 
       {/* Stats Cards */}
@@ -188,16 +165,8 @@ export default function InvoicesPage() {
               <p className="text-muted-foreground">
                 {statusFilter !== 'all'
                   ? 'No invoices match the selected filter'
-                  : 'Sync invoices from Simplicate to see them here'}
+                  : 'Sync invoices from Simplicate via Settings to see them here'}
               </p>
-              <Button variant="outline" className="mt-4" onClick={handleSync} disabled={syncInvoices.isPending}>
-                {syncInvoices.isPending ? (
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                ) : (
-                  <RefreshCw className="mr-2 h-4 w-4" />
-                )}
-                Sync Now
-              </Button>
             </div>
           ) : (
             <>
