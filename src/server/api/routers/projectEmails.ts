@@ -154,6 +154,55 @@ export const projectEmailsRouter = createTRPCRouter({
       })
     }),
 
+  // Get ALL sent emails (for sent emails overview page)
+  getAllSentEmails: publicProcedure
+    .input(
+      z.object({
+        limit: z.number().min(1).max(200).optional().default(100),
+        status: z.enum(['PENDING', 'SENT', 'FAILED']).optional(),
+      })
+    )
+    .query(async ({ ctx, input }) => {
+      return ctx.db.sentEmail.findMany({
+        where: input.status ? { status: input.status } : undefined,
+        orderBy: { createdAt: 'desc' },
+        take: input.limit,
+        include: {
+          template: {
+            select: {
+              name: true,
+              type: true,
+            },
+          },
+          user: {
+            select: {
+              name: true,
+              email: true,
+            },
+          },
+          project: {
+            select: {
+              id: true,
+              name: true,
+              projectNumber: true,
+            },
+          },
+        },
+      })
+    }),
+
+  // Get stats for ALL sent emails
+  getAllSentEmailStats: publicProcedure.query(async ({ ctx }) => {
+    const [total, sent, failed, pending] = await Promise.all([
+      ctx.db.sentEmail.count(),
+      ctx.db.sentEmail.count({ where: { status: 'SENT' } }),
+      ctx.db.sentEmail.count({ where: { status: 'FAILED' } }),
+      ctx.db.sentEmail.count({ where: { status: 'PENDING' } }),
+    ])
+
+    return { total, sent, failed, pending }
+  }),
+
   // Get email stats for a project
   getEmailStats: publicProcedure
     .input(z.object({ projectId: z.string() }))
@@ -191,6 +240,52 @@ export const projectEmailsRouter = createTRPCRouter({
         },
       })
     }),
+
+  // Get ALL document requests (for document requests overview page)
+  getAllDocumentRequests: publicProcedure
+    .input(
+      z.object({
+        limit: z.number().min(1).max(200).optional().default(100),
+        status: z
+          .enum(['PENDING', 'UPLOADED', 'VERIFIED', 'REJECTED'])
+          .optional(),
+      })
+    )
+    .query(async ({ ctx, input }) => {
+      return ctx.db.documentRequest.findMany({
+        where: input.status ? { status: input.status } : undefined,
+        orderBy: { createdAt: 'desc' },
+        take: input.limit,
+        include: {
+          user: {
+            select: {
+              name: true,
+              email: true,
+            },
+          },
+          project: {
+            select: {
+              id: true,
+              name: true,
+              projectNumber: true,
+            },
+          },
+        },
+      })
+    }),
+
+  // Get stats for ALL document requests
+  getAllDocumentRequestStats: publicProcedure.query(async ({ ctx }) => {
+    const [total, pending, uploaded, verified, rejected] = await Promise.all([
+      ctx.db.documentRequest.count(),
+      ctx.db.documentRequest.count({ where: { status: 'PENDING' } }),
+      ctx.db.documentRequest.count({ where: { status: 'UPLOADED' } }),
+      ctx.db.documentRequest.count({ where: { status: 'VERIFIED' } }),
+      ctx.db.documentRequest.count({ where: { status: 'REJECTED' } }),
+    ])
+
+    return { total, pending, uploaded, verified, rejected }
+  }),
 
   // Verify or reject a document
   updateDocumentStatus: publicProcedure
