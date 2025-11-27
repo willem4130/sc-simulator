@@ -1,6 +1,6 @@
 # Financial Tracking - Task Progress
 
-## Current Status: Phase 2 Complete, Phase 3 Next
+## Current Status: Phase 3 Complete, Phase 4 Next
 
 ---
 
@@ -38,12 +38,13 @@
 
 ---
 
-### Phase 3: Enhanced Hours Sync
-- [ ] Update syncHours() for tariff fields
-- [ ] Calculate revenue/cost/margin on sync
-- [ ] Store rateSource
-- [ ] Update syncServices() for hourTypeTariffs
-- [ ] Test full sync cycle
+### Phase 3: Enhanced Hours Sync - COMPLETE
+- [x] Update syncEmployees() to fetch rates from /hrm/timetable (where rates are stored)
+- [x] Add getTimetables() method to Simplicate client
+- [x] Update syncHours() to store salesRate and costRate
+- [x] Calculate revenue/cost/margin on sync
+- [x] Store rateSource
+- [x] Test full sync cycle (425/426 entries with financials calculated)
 
 ---
 
