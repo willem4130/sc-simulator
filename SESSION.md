@@ -1,6 +1,6 @@
 # Session State - Simplicate Automation System
 
-**Last Updated**: November 28, 2025, 12:30 PM
+**Last Updated**: November 28, 2025, 1:00 PM
 **Session Type**: Complex
 **Project**: Simplicate Automation System - Production Readiness Sprint
 
@@ -8,7 +8,7 @@
 
 ## Current Objective
 
-Get the application production-ready within 15 days. Focus on: Hours Reports with email sending, Financial Dashboard, and core workflows.
+Get the application production-ready within 15 days. Focus on: Hours Reports with email sending, Financial Dashboard, Hours Reminders, and core workflows.
 
 ---
 
@@ -72,6 +72,11 @@ Get the application production-ready within 15 days. Focus on: Hours Reports wit
 - **Rationale**: These fields are calculated during sync and stored per entry
 - **Impact**: Fast dashboard queries with groupBy aggregations
 
+**Hours Reminders Architecture**
+- **Choice**: Queue-based processing with cron trigger
+- **Rationale**: Consistent with existing workflow pattern, allows for retries
+- **Impact**: Weekly cron adds item to queue, processor handles email sending
+
 ---
 
 ## Files Modified
@@ -113,9 +118,17 @@ Get the application production-ready within 15 days. Focus on: Hours Reports wit
 - `getMonthlyTrend` - 6-month trend data
 - `getAvailableMonths` - Months with financial data
 
-**Financial Data Source**:
-- HoursEntry has: salesRate, costRate, revenue, cost, margin
-- These are calculated during syncHours() from rates resolver
+**Hours Reminders Flow**:
+1. Cron `/api/cron/hours-reminders` runs weekly (Monday 8:00 UTC)
+2. Creates WorkflowQueue item with HOURS_REMINDER type
+3. Queue processor `/api/cron/process-queue` picks up item
+4. `processHoursReminder()` finds users without hours, sends emails
+
+**Contract Distribution Flow**:
+1. Webhook receives `project.employee.linked` event
+2. Validates project exists in database
+3. Creates WorkflowQueue item with CONTRACT_DISTRIBUTION type
+4. Queue processor creates Contract record and sends notification
 
 ---
 
@@ -125,17 +138,18 @@ Get the application production-ready within 15 days. Focus on: Hours Reports wit
 
 **New URLs Added**:
 - Hours Reports: https://simplicate-automations.vercel.app/admin/email/hours-reports
+- Hours Reminders: https://simplicate-automations.vercel.app/admin/email/hours-reminders
 - Financial Dashboard: https://simplicate-automations.vercel.app/admin/financials
 
 **15-Day Roadmap** (user wants production-ready):
 | Priority | Task | Status |
 |----------|------|--------|
-| 1 | Hours Reports with email | ✅ Done |
-| 2 | Financial Dashboard | ✅ Done |
-| 3 | Hours Reminders workflow | ✅ Done |
-| 4 | Contract workflow E2E | ✅ Tested |
-| 5 | Employee Portal | 📋 Next |
-| 6 | PDF export | 📋 Pending |
+| 1 | Hours Reports with email | Done |
+| 2 | Financial Dashboard | Done |
+| 3 | Hours Reminders workflow | Done |
+| 4 | Contract workflow E2E | Tested |
+| 5 | Employee Portal | Next |
+| 6 | PDF export | Pending |
 
 ---
 
@@ -151,28 +165,26 @@ Read these files first:
 - SESSION.md (detailed session context)
 - CLAUDE.md (project overview)
 
-Current Status: Hours Reports + Financial Dashboard complete and deployed
+Current Status: 4 of 6 roadmap items complete (Hours Reports, Financial Dashboard, Hours Reminders, Contract workflow)
 
 Just Completed:
-- Hours Reports page with working email send button
-- Financial Dashboard with revenue/cost/margin tracking by project and employee
-- Removed sync buttons from Hours/Invoices pages (centralized to Settings)
+- Hours Reminders workflow with weekly cron and manual trigger UI
+- Contract Distribution workflow end-to-end tested
+- Fixed Prisma query bug for email filtering
 
 Next Steps (15-day production roadmap):
-1. Implement Hours Reminders workflow (automated reminders for employees to submit hours)
-2. Build Employee Self-Service Portal (view own hours, upload documents)
-3. Add PDF export to hours reports
-4. Test contract reminder workflow end-to-end
+1. Build Employee Self-Service Portal (view own hours, upload documents)
+2. Add PDF export to hours reports
 
 Key Files:
-- src/server/api/routers/hoursReport.ts - Hours report + email sending
-- src/server/api/routers/financials.ts - Financial dashboard data
-- src/app/admin/email/hours-reports/page.tsx - Hours reports UI
-- src/app/admin/financials/page.tsx - Financial dashboard UI
+- src/app/api/cron/process-queue/route.ts - Queue processor with all workflow handlers
+- src/server/api/routers/automation.ts - Automation router with hours reminders
+- src/app/admin/email/hours-reminders/page.tsx - Hours reminders UI
+- src/app/api/webhooks/simplicate/route.ts - Webhook handler for contract distribution
 
 URLs:
 - Production: https://simplicate-automations.vercel.app/
-- Hours Reports: https://simplicate-automations.vercel.app/admin/email/hours-reports
+- Hours Reminders: https://simplicate-automations.vercel.app/admin/email/hours-reminders
 - Financials: https://simplicate-automations.vercel.app/admin/financials
 
 ---
@@ -180,6 +192,13 @@ URLs:
 ---
 
 ## Previous Session Notes
+
+**Session: November 28, 2025, 1:00 PM - Hours Reminders + Contract Testing**
+- Implemented processHoursReminder in queue processor
+- Created Hours Reminders UI page with manual trigger
+- Added weekly cron job for automated reminders
+- Tested Contract Distribution workflow end-to-end
+- Fixed Prisma query syntax for NOT null email filter
 
 **Session: November 28, 2025, 10:30 AM - Production Sprint**
 - Implemented Hours Reports email sending functionality
