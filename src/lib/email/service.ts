@@ -497,6 +497,8 @@ export async function sendHoursReportEmail(
       replyTo: env.EMAIL_REPLY_TO,
     });
 
+    console.log('[Email] Resend API response:', JSON.stringify(result, null, 2));
+
     // Update SentEmail with success
     await db.sentEmail.update({
       where: { id: sentEmail.id },
