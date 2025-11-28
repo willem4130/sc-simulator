@@ -14,6 +14,7 @@ import { ratesRouter } from '@/server/api/routers/rates'
 import { emailTemplatesRouter } from '@/server/api/routers/emailTemplates'
 import { projectEmailsRouter } from '@/server/api/routers/projectEmails'
 import { hoursReportRouter } from '@/server/api/routers/hoursReport'
+import { financialsRouter } from '@/server/api/routers/financials'
 
 /**
  * This is the primary router for your server.
@@ -35,6 +36,7 @@ export const appRouter = createTRPCRouter({
   emailTemplates: emailTemplatesRouter,
   projectEmails: projectEmailsRouter,
   hoursReport: hoursReportRouter,
+  financials: financialsRouter,
 })
 
 // Export type definition of API
