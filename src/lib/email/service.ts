@@ -198,6 +198,7 @@ export async function sendTemplatedEmail(options: SendEmailOptions): Promise<Sen
       to: [options.recipient.email],
       subject: renderedSubject,
       html: fullHtml,
+      replyTo: env.EMAIL_REPLY_TO,
     });
 
     // Update SentEmail with success
@@ -493,6 +494,7 @@ export async function sendHoursReportEmail(
       to: [recipient.email],
       subject,
       html: fullHtml,
+      replyTo: env.EMAIL_REPLY_TO,
     });
 
     // Update SentEmail with success
