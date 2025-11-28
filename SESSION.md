@@ -1,6 +1,6 @@
 # Session State - Simplicate Automation System
 
-**Last Updated**: November 28, 2025, 10:30 AM
+**Last Updated**: November 28, 2025, 12:30 PM
 **Session Type**: Complex
 **Project**: Simplicate Automation System - Production Readiness Sprint
 
@@ -30,6 +30,19 @@ Get the application production-ready within 15 days. Focus on: Hours Reports wit
   - Employee breakdown table with effective rates
   - Tabbed interface for switching between views
 
+- **Hours Reminders Workflow** (`/admin/email/hours-reminders`):
+  - Weekly cron job (Mondays 8:00 UTC) queues reminders
+  - Queue processor finds employees without hours, sends email reminders
+  - Manual trigger UI with preview of who would receive reminders
+  - Stats cards showing total users, needing reminder, submitted hours
+  - User table with hours logged and status
+
+- **Contract Distribution Workflow**:
+  - Webhook handler receives `project.employee.linked` events
+  - Validates project exists before queueing
+  - Queue processor creates Contract record and sends notification
+  - Full end-to-end flow tested
+
 - **Cleanup**:
   - Removed sync buttons from Hours and Invoices pages
   - Centralized sync functionality to Settings page
@@ -37,10 +50,8 @@ Get the application production-ready within 15 days. Focus on: Hours Reports wit
 
 ### Pending Tasks
 
-- Hours Reminders workflow (automated reminders for employees to submit hours)
 - Employee Self-Service Portal (view hours, upload documents)
 - PDF export for hours reports
-- Contract workflow end-to-end testing
 
 ---
 
@@ -69,6 +80,8 @@ Get the application production-ready within 15 days. Focus on: Hours Reports wit
 - `src/server/api/routers/hoursReport.ts` - Hours report data aggregation and email sending
 - `src/server/api/routers/financials.ts` - Financial dashboard data (overview, by project, by employee, trends)
 - `src/app/admin/financials/page.tsx` - Financial Dashboard UI
+- `src/app/admin/email/hours-reminders/page.tsx` - Hours Reminders UI (manual trigger + preview)
+- `src/app/api/cron/hours-reminders/route.ts` - Weekly cron job for hours reminders
 
 ### Modified
 - `src/server/api/root.ts` - Registered hoursReport and financials routers
@@ -77,6 +90,10 @@ Get the application production-ready within 15 days. Focus on: Hours Reports wit
 - `src/app/admin/invoices/page.tsx` - Removed sync button and related code
 - `src/lib/email/service.ts` - Added `sendHoursReportEmail()` and `HoursReportEmailData` type
 - `prisma/schema.prisma` - Added HOURS_REPORT to EmailTemplateType enum
+- `src/app/api/cron/process-queue/route.ts` - Implemented `processHoursReminder` function
+- `src/server/api/routers/automation.ts` - Added `triggerHoursReminders`, `getHoursReminderPreview`
+- `src/app/admin/layout.tsx` - Added Hours Reminders nav item
+- `vercel.json` - Added weekly cron for hours reminders
 
 ---
 
@@ -115,10 +132,10 @@ Get the application production-ready within 15 days. Focus on: Hours Reports wit
 |----------|------|--------|
 | 1 | Hours Reports with email | ✅ Done |
 | 2 | Financial Dashboard | ✅ Done |
-| 3 | Hours Reminders workflow | 📋 Next |
-| 4 | Employee Portal | 📋 Pending |
-| 5 | PDF export | 📋 Pending |
-| 6 | End-to-end testing | 📋 Pending |
+| 3 | Hours Reminders workflow | ✅ Done |
+| 4 | Contract workflow E2E | ✅ Tested |
+| 5 | Employee Portal | 📋 Next |
+| 6 | PDF export | 📋 Pending |
 
 ---
 
