@@ -47,6 +47,12 @@ enum PurchasingInvoiceStatus {
   REJECTED
 }
 
+enum EmailType {
+  INVOICE
+  CONTRACT
+  OTHER
+}
+
 enum TemplateSource {
   UPLOADED
   SIMPLICATE
@@ -749,6 +755,13 @@ model PurchasingInvoice {
 
   simplicateInvoiceId   String?                  @unique
 
+  // Inbound email & OCR tracking
+  sourceEmailId         String?                  @unique
+  sourceEmail           InboundEmail?            @relation(fields: [sourceEmailId], references: [id])
+  ocrData               Json?                    // Raw OCR extraction result
+  ocrConfidence         Float?                   // Confidence score (0-1)
+  needsReview           Boolean                  @default(true) // Flag for manual review
+
   createdAt             DateTime                 @default(now())
   updatedAt             DateTime                 @updatedAt
 
@@ -759,6 +772,8 @@ model PurchasingInvoice {
   @@index([projectId])
   @@index([userId])
   @@index([status])
+  @@index([sourceEmailId])
+  @@index([needsReview])
 }
 
 // ==========================================
@@ -933,4 +948,54 @@ model DocumentRequest {
   @@index([userId])
   @@index([uploadToken])
   @@index([status])
+}
+
+// ==========================================
+// INBOUND EMAIL PROCESSING
+// ==========================================
+
+model InboundEmail {
+  id            String   @id @default(cuid())
+  from          String
+  to            String
+  subject       String
+  body          String?  @db.Text
+  receivedAt    DateTime @default(now())
+
+  // Classification
+  type          EmailType?  // INVOICE | CONTRACT | OTHER
+  classifiedBy  String?     // ADDRESS | SUBJECT | AI | MANUAL
+
+  // Processing
+  processed     Boolean  @default(false)
+  processedAt   DateTime?
+  error         String?  @db.Text
+
+  // Relations
+  attachments   EmailAttachment[]
+  invoice       PurchasingInvoice?
+
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@index([from])
+  @@index([to])
+  @@index([receivedAt])
+  @@index([processed])
+  @@index([type])
+}
+
+model EmailAttachment {
+  id            String   @id @default(cuid())
+  emailId       String
+  filename      String
+  contentType   String
+  size          Int
+  data          Bytes    // Store directly in DB (or use Vercel Blob for large files)
+
+  email         InboundEmail @relation(fields: [emailId], references: [id], onDelete: Cascade)
+
+  createdAt     DateTime @default(now())
+
+  @@index([emailId])
 }

@@ -45,7 +45,7 @@ export default function EmployeePortalPage({
   params: Promise<{ token: string }>
 }) {
   const { token } = use(params)
-  const [selectedMonth, setSelectedMonth] = useState<string>('')
+  const [selectedMonth, setSelectedMonth] = useState<string>('all')
 
   // Validate token and get employee info
   const { data: tokenData, isLoading: isValidating } = api.employeePortal.validateToken.useQuery(
@@ -61,13 +61,13 @@ export default function EmployeePortalPage({
 
   // Get hours for selected month (or all)
   const { data: hoursData, isLoading: hoursLoading } = api.employeePortal.getMyHours.useQuery(
-    { token, month: selectedMonth || undefined },
+    { token, month: selectedMonth === 'all' ? undefined : selectedMonth },
     { enabled: tokenData?.valid === true }
   )
 
   // Get expenses for selected month
   const { data: expensesData, isLoading: expensesLoading } = api.employeePortal.getMyExpenses.useQuery(
-    { token, month: selectedMonth || undefined },
+    { token, month: selectedMonth === 'all' ? undefined : selectedMonth },
     { enabled: tokenData?.valid === true }
   )
 
@@ -140,7 +140,7 @@ export default function EmployeePortalPage({
               <SelectValue placeholder="Alle periodes" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="">Alle periodes</SelectItem>
+              <SelectItem value="all">Alle periodes</SelectItem>
               {months?.map((m) => (
                 <SelectItem key={m.value} value={m.value}>
                   {m.label}

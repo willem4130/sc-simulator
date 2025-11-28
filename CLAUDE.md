@@ -48,10 +48,23 @@ Production-ready automation system for Simplicate that handles contract distribu
 
 **Task tracking**: See `docs/project/FINANCIAL-TRACKING-TASKS.md`
 
-### Future Phases (after Financial Tracking)
+### Phase 4 - Inbound Email & Invoice OCR (COMPLETE)
+**Goal**: Automate purchase invoice processing via email with AI OCR
+
+- [x] Database schema (InboundEmail, EmailAttachment models)
+- [x] Email classification logic (address, subject, filename, AI fallback)
+- [x] Claude Vision invoice OCR integration
+- [x] Webhook endpoint (/api/email/inbound)
+- [x] tRPC router for email management
+- [x] Admin UI (/admin/email/inbox)
+- [x] Automatic draft invoice creation from OCR
+
+**Implementation**: See `docs/project/INBOUND-EMAIL-PLAN.md` for full architecture
+
+### Future Phases
 - Contract template management
 - Hours reminders with budget insights
-- Employee self-service portal
+- SendGrid inbound parse configuration
 
 ## Project Structure
 
@@ -187,13 +200,16 @@ Required in Vercel:
 - `RESEND_API_KEY` - Email sending (from resend.com)
 - `EMAIL_FROM` - Sender email address
 - `SIMPLICATE_API_KEY` / `SIMPLICATE_API_SECRET` / `SIMPLICATE_DOMAIN` - Simplicate API access
+- `ANTHROPIC_API_KEY` - Claude Vision API for invoice OCR (inbound email processing)
 
 ## Useful URLs
 
 - **Production**: https://simplicate-automations.vercel.app/
 - **Help (Dutch)**: https://simplicate-automations.vercel.app/admin/help
+- **Email Inbox**: https://simplicate-automations.vercel.app/admin/email/inbox
 - **Hours Reports**: https://simplicate-automations.vercel.app/admin/email/hours-reports
 - **Sent Emails**: https://simplicate-automations.vercel.app/admin/email/sent
 - **Settings/Sync**: https://simplicate-automations.vercel.app/admin/settings
 - **Portal Links Admin**: https://simplicate-automations.vercel.app/admin/portal
 - **Employee Portal**: https://simplicate-automations.vercel.app/portal/[token]
+- **Inbound Email Webhook**: https://simplicate-automations.vercel.app/api/email/inbound

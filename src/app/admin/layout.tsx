@@ -24,6 +24,7 @@ import {
   Bell,
   HelpCircle,
   Link2,
+  Inbox,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Separator } from '@/components/ui/separator'
@@ -112,6 +113,11 @@ const automationSection: NavSection = {
       title: 'Email Templates',
       href: '/admin/email/templates',
       icon: Mail,
+    },
+    {
+      title: 'Email Inbox',
+      href: '/admin/email/inbox',
+      icon: Inbox,
     },
     {
       title: 'Sent Emails',
