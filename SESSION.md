@@ -1,6 +1,6 @@
 # Session State - Simplicate Automation System
 
-**Last Updated**: November 28, 2025, 10:30 AM
+**Last Updated**: November 28, 2025, 12:10 PM
 **Session Type**: Complex
 **Project**: Simplicate Automation System - Production Readiness Sprint
 
@@ -15,6 +15,15 @@ Get the application production-ready. Focus on: testing all functionality, Dutch
 ## Progress Summary
 
 ### Completed Tasks
+
+- **Employee Self-Service Portal** (`/portal/[token]`):
+  - Token-based authentication (30-day validity)
+  - View own hours with project breakdown
+  - View kilometers and km reimbursement
+  - View expense declarations
+  - View document requests with upload links
+  - Month filtering for all data
+  - Admin page at `/admin/portal` to generate portal links
 
 - **Email System Configured & Tested**:
   - Added RESEND_API_KEY to Vercel production environment
@@ -43,9 +52,9 @@ Get the application production-ready. Focus on: testing all functionality, Dutch
 
 ### Pending Tasks
 
-- Employee Self-Service Portal (view hours, upload documents)
 - PDF export for hours reports
 - Authentication/Access Control (Tinus/Casper as owners, others limited)
+- Email replies with document attachments (future enhancement)
 
 ---
 
@@ -105,6 +114,8 @@ Get the application production-ready. Focus on: testing all functionality, Dutch
 - Hours Reports: https://simplicate-automations.vercel.app/admin/email/hours-reports
 - Sent Emails: https://simplicate-automations.vercel.app/admin/email/sent
 - Settings/Sync: https://simplicate-automations.vercel.app/admin/settings
+- Portal Links Admin: https://simplicate-automations.vercel.app/admin/portal
+- Willem's Portal: https://simplicate-automations.vercel.app/portal/ac88a0396a8ab093da624fca68fd01c645e0e606294da5e3bd39d3cdeb390e61
 
 **Testing**:
 - Willem's user ID: `cmiigv6fp000cjp045dym3457`
@@ -131,38 +142,46 @@ Read these files first:
 - SESSION.md (detailed session context)
 - CLAUDE.md (project overview + testing rules)
 
-Current Status: Email system working, Dutch help docs complete
+Current Status: Employee Portal complete, email system working, Dutch help docs complete
 
 Just Completed:
-- Configured Resend API key in Vercel production
-- Created Dutch help documentation at /admin/help
-- Tested email sending (2 emails sent successfully)
-- Added testing rules to CLAUDE.md (only use willem@scex.nl)
+- Built Employee Self-Service Portal at /portal/[token]
+  - Token-based auth (30 days), view hours/km/expenses
+  - Admin page at /admin/portal for generating links
+  - Tested with Willem's data (337.5 hours, 5 projects)
 
-Next Steps (15-day production roadmap):
-1. Build Employee Self-Service Portal (view own hours, upload documents)
-2. Add PDF export to hours reports
-3. Add authentication (email/password) with owner roles for Tinus/Casper
+Next Steps:
+1. Add PDF export to hours reports
+2. Add authentication (email/password) with owner roles for Tinus/Casper
+3. Email replies with document attachments (optional enhancement)
 
 Key Files:
-- src/app/admin/help/page.tsx - Dutch help documentation
-- src/app/admin/layout.tsx - Navigation with Help link
-- CLAUDE.md - Testing rules and URLs
+- src/app/portal/[token]/page.tsx - Employee portal
+- src/app/admin/portal/page.tsx - Admin link generator
+- src/server/api/routers/employeePortal.ts - Portal API
 
 Testing:
 - ONLY use willem@scex.nl for email tests
 - Willem's user ID: cmiigv6fp000cjp045dym3457
+- Willem's portal: https://simplicate-automations.vercel.app/portal/ac88a0396a8ab093da624fca68fd01c645e0e606294da5e3bd39d3cdeb390e61
 
 URLs:
 - Production: https://simplicate-automations.vercel.app/
+- Portal Admin: https://simplicate-automations.vercel.app/admin/portal
 - Help: https://simplicate-automations.vercel.app/admin/help
-- Hours Reports: https://simplicate-automations.vercel.app/admin/email/hours-reports
 
 ---
 
 ---
 
 ## Previous Session Notes
+
+**Session: November 28, 2025, 12:10 PM - Employee Self-Service Portal**
+- Built employeePortal router with token-based auth
+- Created portal page at /portal/[token] with hours, km, expenses tabs
+- Created admin page at /admin/portal for generating links
+- Added skeleton and sonner components for UX
+- Tested with Willem's data (337.5 hours across 5 projects)
 
 **Session: November 28, 2025, 10:30 AM - Email Setup, Testing & Help Docs**
 - Configured RESEND_API_KEY in Vercel

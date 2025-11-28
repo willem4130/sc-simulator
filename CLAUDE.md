@@ -195,3 +195,5 @@ Required in Vercel:
 - **Hours Reports**: https://simplicate-automations.vercel.app/admin/email/hours-reports
 - **Sent Emails**: https://simplicate-automations.vercel.app/admin/email/sent
 - **Settings/Sync**: https://simplicate-automations.vercel.app/admin/settings
+- **Portal Links Admin**: https://simplicate-automations.vercel.app/admin/portal
+- **Employee Portal**: https://simplicate-automations.vercel.app/portal/[token]
