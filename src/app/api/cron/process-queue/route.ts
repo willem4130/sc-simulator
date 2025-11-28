@@ -345,9 +345,6 @@ async function processHoursReminder(item: {
   // Get active project members with their hours for the period
   const whereClause: any = {
     leftAt: null, // Active members only
-    user: {
-      NOT: { email: null },
-    },
   };
 
   if (projectId) {

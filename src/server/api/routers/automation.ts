@@ -272,9 +272,6 @@ export const automationRouter = createTRPCRouter({
       // Get active project members
       const whereClause: any = {
         leftAt: null,
-        user: {
-          NOT: { email: null },
-        },
       }
 
       if (input.projectId) {
