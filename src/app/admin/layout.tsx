@@ -22,6 +22,7 @@ import {
   FileUp,
   ClipboardList,
   Bell,
+  HelpCircle,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Separator } from '@/components/ui/separator'
@@ -135,6 +136,12 @@ const settingsItem: NavItem = {
   icon: Settings,
 }
 
+const helpItem: NavItem = {
+  title: 'Help',
+  href: '/admin/help',
+  icon: HelpCircle,
+}
+
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname()
   const [automationExpanded, setAutomationExpanded] = useState(() => {
@@ -241,6 +248,22 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
                 >
                   <settingsItem.icon className="h-4 w-4" />
                   {settingsItem.title}
+                </Button>
+              </Link>
+            </div>
+
+            {/* Help */}
+            <div className="pt-1">
+              <Link href={helpItem.href}>
+                <Button
+                  variant={pathname === helpItem.href ? 'secondary' : 'ghost'}
+                  className={cn(
+                    'w-full justify-start gap-3',
+                    pathname === helpItem.href && 'bg-accent'
+                  )}
+                >
+                  <helpItem.icon className="h-4 w-4" />
+                  {helpItem.title}
                 </Button>
               </Link>
             </div>
