@@ -1,25 +1,32 @@
-# Simplicate Automations
+# Supply Chain Scenario Simulator
 
-Production-ready automation system for Simplicate: contract distribution, hours reminders, invoice generation with full financial tracking (revenue/cost/margin).
+Multi-tenant SaaS application for supply chain "what-if" scenario modeling with non-linear effect curves, side-by-side comparison, and financial impact analysis.
 
-**Production**: https://simplicate-automations.vercel.app/ | **Stack**: Next.js 16 + tRPC + Prisma + PostgreSQL
-
-## Documentation
-
-See `docs/project/` for implementation details: `IMPLEMENTATION-PLAN.md`, `FINANCIAL-TRACKING-PLAN.md`, `INBOUND-EMAIL-PLAN.md`, `MILEAGE-TRACKING-PLAN.md`
+**Stack**: Next.js 16 + tRPC 11 + Prisma 6 + PostgreSQL + TypeScript 5
 
 ## Project Structure
 
 ```
 src/
-├── app/                          # Next.js pages
-│   ├── admin/                    # Admin dashboard (dashboard, projects, hours, invoices, contracts, workflows, automation, email, financials, rates, portal, help)
-│   ├── api/                      # API routes (trpc, webhooks, cron, email/inbound)
-│   └── portal/[token]/           # Employee self-service portal
-├── server/api/routers/           # 18 tRPC routers (sync, projects, hours, invoices, contracts, workflows, automation, rates, financials, etc.)
-├── lib/                          # Business logic (simplicate client, workflows, rates resolver, notifications, email service)
-├── components/                   # React components (ui/, admin/)
-└── prisma/schema.prisma          # 27 models (User, Project, Hours, Invoice, Contract, WorkflowQueue, InboundEmail, etc.)
+├── app/                              # Next.js pages
+│   ├── admin/                        # Admin dashboard
+│   │   ├── dashboard/                # Overview & scenario summary
+│   │   ├── scenarios/                # Scenario management (list, [id], compare, new)
+│   │   ├── variables/                # Variable definitions
+│   │   ├── effect-curves/            # Effect curve editor with live preview
+│   │   └── parameters/               # Global parameter management
+│   └── api/                          # API routes (trpc, webhooks, health)
+├── server/                           # Backend logic
+│   ├── api/routers/                  # 8 tRPC routers (organization, scenario, variable, parameter, effectCurve, calculation, comparison, export)
+│   └── calculation/                  # Calculation engine (engine, formula-parser, formula-evaluator, curves, dependency-graph)
+├── lib/                              # Business logic & utilities
+│   ├── calculation/                  # Calculation engine components
+│   ├── export/                       # Excel export service
+│   └── utils.ts                      # Shared utilities
+├── components/                       # React components
+│   ├── ui/                           # shadcn/ui components
+│   └── admin/                        # Custom admin components (ScenarioList, CurvePreview, ComparisonTable, BottleneckHeatmap)
+└── prisma/schema.prisma              # 9 models (Organization, User, Scenario, Variable, VariableValue, Parameter, EffectCurve, Calculation, AuditLog)
 ```
 
 ## Code Quality - Zero Tolerance
@@ -47,52 +54,74 @@ npm run dev                        # Start dev server (Turbopack)
 npm run typecheck                  # Type check (REQUIRED after edits)
 npm run db:push                    # Push schema changes
 npm run db:generate                # Regenerate Prisma client
-npx vercel --prod --yes            # Deploy to production
-git commit --no-verify -m "msg"    # Commit (skip pre-commit hooks if needed)
+npm run build                      # Production build
+npx vercel --prod                  # Deploy to production
 ```
 
 ## Organization Rules
 
-- **API routes** → `src/server/api/routers/` (one router per domain: sync.ts, hours.ts, invoices.ts, etc.)
-- **Business logic** → `src/lib/` (workflows/, rates/, notifications/, simplicate/)
+- **API routers** → `src/server/api/routers/` (one router per domain: organization.ts, scenario.ts, variable.ts, etc.)
+- **Calculation engine** → `src/lib/calculation/` or `src/server/calculation/` (engine, parser, evaluator, curves, dependency-graph)
+- **Business logic** → `src/lib/` (export service, utilities)
 - **UI components** → `src/components/` (ui/ for shadcn, admin/ for custom)
 - **Pages** → `src/app/admin/` (one folder per feature)
 - **One responsibility per file** - keep files focused and modular
 
-## Testing Rules
+## Architecture Principles
 
-- **ONLY use willem@scex.nl for email testing** - Never send to other addresses
-- Willem's user ID: `cmiigv6fp000cjp045dym3457`
-- Test email: `curl -X POST "https://simplicate-automations.vercel.app/api/trpc/hoursReport.sendReport" -H "Content-Type: application/json" -d '{"json":{"employeeId":"cmiigv6fp000cjp045dym3457","month":"2025-11"}}'`
+### Multi-Tenant Security
+- **All queries filtered by organizationId** - Use custom `organizationProcedure` middleware
+- **Organization-level data isolation** - User ↔ Organization 1:1 relationship
+- **Role-based access** - ADMIN/EDITOR/VIEWER roles enforced
 
-## Simplicate API (client.ts)
+### Calculation Engine
+- **Formula language**: Variables (INPUT_*, OUTPUT_*, PARAM_*), operators (+, -, *, /), functions (MAX, MIN, IF, ABS, SQRT)
+- **Dependency resolution**: Topological sort (Kahn's algorithm) with circular dependency detection
+- **Effect curves**: LINEAR, LOGARITHMIC, EXPONENTIAL, STEP_WISE, CUSTOM_INTERPOLATED
+- **Cached results**: Store in Calculation table with versioning
 
-**Endpoints**: getProjects, getEmployees, getHours, getAllHours, getInvoices, getServices, getMileage, getDocuments, getTimetables, createWebhook
-**Filtering**: `q[project_id]=xxx`, `q[start_date][ge]=2024-01-01`, `offset=0&limit=100`
+### Data Patterns
+- **Template + Instance**: Variable (template) → VariableValue (instances per scenario)
+- **Baseline + Delta**: Track changes relative to baseline scenario (delta, percentChange)
+- **Formula + Dependencies**: Variables calculated in topological order
 
-## Workflow Architecture
+## Implementation Phases
 
-1. **Trigger**: Webhook (Simplicate) / Cron (Vercel) / Manual
-2. **Queue**: WorkflowQueue table → `/api/cron/process-queue` (runs every minute)
-3. **Execute**: `src/lib/workflows/*.ts` logic
-4. **Log**: AutomationLog table
-5. **Notify**: Resend (email) + Slack (optional)
+Based on `Planning/SUPPLY_CHAIN_SIMULATOR_PLAN.md`:
+1. **Foundation** - Prisma models, basic CRUD routers, admin pages
+2. **Calculation Engine** - Formula parser/evaluator, dependency resolution, baseline comparison
+3. **Effect Curves** - Curve model, 5 curve types, live preview, integration
+4. **Time Periods & Parameters** - Time-series support, parameter management
+5. **BI & Comparison** - Scenario comparison table, Recharts visualizations, bottleneck heatmap
+6. **Excel Export** - ExcelJS integration, full comparison export
+7. **Polish & Production** - Audit logging, permissions, cloning, error handling, testing
 
-## Financial Tracking (Phases 0-3 COMPLETE)
+## Database Schema (Prisma)
 
-- **Rate hierarchy**: Service-employee > Project-member > User override > User default > Simplicate
-- **Calculations**: revenue (hours × salesRate), cost (hours × costRate), margin (revenue - cost)
-- **Status**: Hours sync with financials ✅ | Financial dashboard (Phase 4) 🚧 | Mileage tracking (planned)
+**9 Core Models:**
+- `Organization` - Multi-tenant container
+- `User` - Team members with roles (ADMIN/EDITOR/VIEWER)
+- `Scenario` - What-if models (with baseline support, time periods, cloning)
+- `Variable` - Calculation templates (INPUT/OUTPUT types with formulas)
+- `VariableValue` - Scenario-specific input values (time-series support)
+- `Parameter` - Global configuration values
+- `EffectCurve` - Non-linear transformation curves (5 types)
+- `Calculation` - Cached results with versioning and delta tracking
+- `AuditLog` - Change tracking for compliance
 
-## Environment Variables (Vercel)
+## Tech Stack
 
-`DATABASE_URL`, `RESEND_API_KEY`, `EMAIL_FROM`, `SIMPLICATE_API_KEY`, `SIMPLICATE_API_SECRET`, `SIMPLICATE_DOMAIN`, `ANTHROPIC_API_KEY`
+| Category | Technology |
+|----------|-----------|
+| **Framework** | Next.js 16 (App Router) + React 19 |
+| **Database** | PostgreSQL + Prisma ORM 6.19 |
+| **API** | tRPC 11 (8 routers) |
+| **UI** | shadcn/ui + Tailwind CSS 3.4 |
+| **Charts** | Recharts 3.4 |
+| **Auth** | NextAuth.js 5.0 |
+| **Validation** | Zod |
+| **Export** | ExcelJS |
 
-## Useful URLs
+## Environment Variables
 
-- **Settings/Sync**: /admin/settings
-- **Hours**: /admin/hours
-- **Invoices**: /admin/invoices
-- **Email Inbox**: /admin/email/inbox
-- **Portal Links**: /admin/portal
-- **Help (Dutch)**: /admin/help
+`DATABASE_URL`, `NEXTAUTH_SECRET`, `NEXTAUTH_URL`, `RESEND_API_KEY` (optional)
