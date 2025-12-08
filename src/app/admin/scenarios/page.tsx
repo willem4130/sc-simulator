@@ -10,51 +10,52 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog"
+import { api } from "@/trpc/react"
 
-// Mock data for development (will be replaced with tRPC calls)
-const mockScenarios: Scenario[] = [
-  {
-    id: "baseline-1",
-    name: "Baseline - Current State",
-    description: "Current supply chain configuration with no changes",
-    isBaseline: true,
-    timePeriodType: "SINGLE",
-    createdAt: new Date("2024-01-15"),
-    updatedAt: new Date("2024-01-15"),
-    totalCost: 50000,
-  },
-  {
-    id: "scenario-1",
-    name: "Supplier Switch - 15% Cost Reduction",
-    description: "What-if analysis: Switch to new supplier with lower unit costs",
-    isBaseline: false,
-    timePeriodType: "SINGLE",
-    createdAt: new Date("2024-01-20"),
-    updatedAt: new Date("2024-01-22"),
-    totalCost: 42500,
-    savingsVsBaseline: 7500,
-    savingsPercent: -15.0,
-  },
-  {
-    id: "scenario-2",
-    name: "Volume Increase + Efficiency Gains",
-    description: "Scenario modeling 20% volume increase with 10% efficiency improvement",
-    isBaseline: false,
-    timePeriodType: "SINGLE",
-    createdAt: new Date("2024-01-25"),
-    updatedAt: new Date("2024-01-26"),
-    totalCost: 54000,
-    savingsVsBaseline: -4000,
-    savingsPercent: 8.0,
-  },
-]
+// Hardcoded organization ID for now (from seed data)
+const ORG_ID = 'cmix6hmfc0000obbsvi3idngs'
 
 export default function ScenariosPage() {
-  const [scenarios, setScenarios] = useState<Scenario[]>(mockScenarios)
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false)
   const [editingScenario, setEditingScenario] = useState<Scenario | null>(null)
 
+  // Query scenarios from database
+  const { data: dbScenarios = [], refetch } = api.scenario.list.useQuery({
+    organizationId: ORG_ID,
+  })
+
+  // Transform database scenarios to UI format
+  const scenarios: Scenario[] = dbScenarios.map((s) => ({
+    id: s.id,
+    name: s.name,
+    description: s.description,
+    isBaseline: s.isBaseline,
+    timePeriodType: s.timePeriodType,
+    createdAt: s.createdAt,
+    updatedAt: s.updatedAt,
+    totalCost: undefined, // Will be populated after calculations
+    savingsVsBaseline: undefined,
+    savingsPercent: undefined,
+  }))
+
   const baselineScenarios = scenarios.filter((s) => s.isBaseline)
+
+  // Mutations
+  const createMutation = api.scenario.create.useMutation({
+    onSuccess: () => {
+      refetch()
+      setIsCreateDialogOpen(false)
+      setEditingScenario(null)
+    },
+  })
+
+  const updateMutation = api.scenario.update.useMutation({
+    onSuccess: () => {
+      refetch()
+      setIsCreateDialogOpen(false)
+      setEditingScenario(null)
+    },
+  })
 
   const handleCreateNew = () => {
     setEditingScenario(null)
@@ -70,41 +71,26 @@ export default function ScenariosPage() {
   }
 
   const handleSubmit = async (values: ScenarioFormValues) => {
-    // TODO: Replace with tRPC mutation
-    console.log("Form submitted:", values)
-
     if (editingScenario) {
       // Update existing scenario
-      setScenarios((prev) =>
-        prev.map((s) =>
-          s.id === editingScenario.id
-            ? {
-                ...s,
-                name: values.name,
-                description: values.description || null,
-                timePeriodType: values.timePeriodType,
-                isBaseline: values.isBaseline,
-                updatedAt: new Date(),
-              }
-            : s
-        )
-      )
+      updateMutation.mutate({
+        organizationId: ORG_ID,
+        id: editingScenario.id,
+        name: values.name,
+        description: values.description,
+        timePeriodType: values.timePeriodType === 'SINGLE' ? 'SINGLE_POINT' : values.timePeriodType,
+        isBaseline: values.isBaseline,
+      })
     } else {
       // Create new scenario
-      const newScenario: Scenario = {
-        id: `scenario-${Date.now()}`,
+      createMutation.mutate({
+        organizationId: ORG_ID,
         name: values.name,
-        description: values.description || null,
-        timePeriodType: values.timePeriodType,
+        description: values.description,
+        timePeriodType: values.timePeriodType === 'SINGLE' ? 'SINGLE_POINT' : values.timePeriodType,
         isBaseline: values.isBaseline,
-        createdAt: new Date(),
-        updatedAt: new Date(),
-      }
-      setScenarios((prev) => [...prev, newScenario])
+      })
     }
-
-    setIsCreateDialogOpen(false)
-    setEditingScenario(null)
   }
 
   const handleCancel = () => {
