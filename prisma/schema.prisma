@@ -27,11 +27,12 @@ model Organization {
   updatedAt DateTime @updatedAt
 
   // Relations
-  users      User[]
-  scenarios  Scenario[]
-  variables  Variable[]
-  parameters Parameter[]
-  auditLogs  AuditLog[]
+  users        User[]
+  scenarios    Scenario[]
+  variables    Variable[]
+  parameters   Parameter[]
+  effectCurves EffectCurve[]
+  auditLogs    AuditLog[]
 
   @@index([slug])
 }
@@ -226,6 +227,10 @@ model EffectCurve {
   description String?
   curveType   CurveType
 
+  // Multi-tenant link
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
   // Curve configuration (JSON for flexibility)
   parameters Json @db.JsonB
   // Examples by curve type:
@@ -244,6 +249,7 @@ model EffectCurve {
   // Relations
   variables Variable[]
 
+  @@index([organizationId])
   @@index([curveType])
 }
 

@@ -1,46 +1,26 @@
-import { createTRPCRouter } from '@/server/api/trpc'
-import { projectsRouter } from '@/server/api/routers/projects'
-import { contractsRouter } from '@/server/api/routers/contracts'
-import { automationRouter } from '@/server/api/routers/automation'
-import { dashboardRouter } from '@/server/api/routers/dashboard'
-import { syncRouter } from '@/server/api/routers/sync'
-import { workflowsRouter } from '@/server/api/routers/workflows'
-import { settingsRouter } from '@/server/api/routers/settings'
-import { usersRouter } from '@/server/api/routers/users'
-import { hoursRouter } from '@/server/api/routers/hours'
-import { invoicesRouter } from '@/server/api/routers/invoices'
-import { filterPresetsRouter } from '@/server/api/routers/filterPresets'
-import { ratesRouter } from '@/server/api/routers/rates'
-import { emailTemplatesRouter } from '@/server/api/routers/emailTemplates'
-import { projectEmailsRouter } from '@/server/api/routers/projectEmails'
-import { hoursReportRouter } from '@/server/api/routers/hoursReport'
-import { financialsRouter } from '@/server/api/routers/financials'
-import { employeePortalRouter } from '@/server/api/routers/employeePortal'
-import { inboundEmailRouter } from '@/server/api/routers/inboundEmail'
-
 /**
  * This is the primary router for your server.
  * All routers added in /api/routers should be manually added here.
  */
+import { createTRPCRouter } from '@/server/api/trpc'
+import { organizationRouter } from '@/server/api/routers/organization'
+import { scenarioRouter } from '@/server/api/routers/scenario'
+import { variableRouter } from '@/server/api/routers/variable'
+import { parameterRouter } from '@/server/api/routers/parameter'
+import { effectCurveRouter } from '@/server/api/routers/effectCurve'
+import { calculationRouter } from '@/server/api/routers/calculation'
+import { comparisonRouter } from '@/server/api/routers/comparison'
+import { exportRouter } from '@/server/api/routers/export'
+
 export const appRouter = createTRPCRouter({
-  projects: projectsRouter,
-  contracts: contractsRouter,
-  automation: automationRouter,
-  dashboard: dashboardRouter,
-  sync: syncRouter,
-  workflows: workflowsRouter,
-  settings: settingsRouter,
-  users: usersRouter,
-  hours: hoursRouter,
-  invoices: invoicesRouter,
-  filterPresets: filterPresetsRouter,
-  rates: ratesRouter,
-  emailTemplates: emailTemplatesRouter,
-  projectEmails: projectEmailsRouter,
-  hoursReport: hoursReportRouter,
-  financials: financialsRouter,
-  employeePortal: employeePortalRouter,
-  inboundEmail: inboundEmailRouter,
+  organization: organizationRouter,
+  scenario: scenarioRouter,
+  variable: variableRouter,
+  parameter: parameterRouter,
+  effectCurve: effectCurveRouter,
+  calculation: calculationRouter,
+  comparison: comparisonRouter,
+  export: exportRouter,
 })
 
 // Export type definition of API
