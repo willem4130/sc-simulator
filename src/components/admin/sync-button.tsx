@@ -20,7 +20,7 @@ export function SyncButton() {
   const utils = api.useUtils()
   const { data: syncStatus } = api.sync.getSyncStatus.useQuery()
 
-  const syncMutation = api.sync.resetAndSync.useMutation({
+  const syncMutation = api.sync.syncAll.useMutation({
     onSuccess: (data) => {
       setLastSyncResult({
         success: true,
@@ -88,15 +88,18 @@ export function SyncButton() {
             </p>
           ) : (
             <div className="space-y-1">
-              <p className="font-medium">Sync from Simplicate</p>
+              <p className="font-medium">Sync All from Simplicate</p>
               <p className="text-xs text-muted-foreground">
                 Last sync: {formatLastSync()}
               </p>
               {syncStatus && (
                 <p className="text-xs text-muted-foreground">
-                  {syncStatus.totalProjects} projects, {syncStatus.syncedUsers} users synced
+                  {syncStatus.totalProjects} projects, {syncStatus.syncedUsers} users
                 </p>
               )}
+              <p className="text-xs text-muted-foreground mt-1">
+                Non-destructive: updates existing data
+              </p>
             </div>
           )}
         </TooltipContent>

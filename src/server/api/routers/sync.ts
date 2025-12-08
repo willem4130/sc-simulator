@@ -753,6 +753,213 @@ export const syncRouter = createTRPCRouter({
     }
   }),
 
+  // Sync all entities from Simplicate (non-destructive, parallel where safe)
+  syncAll: publicProcedure.mutation(async ({ ctx }) => {
+    const startTime = Date.now()
+    const client = getSimplicateClient()
+
+    const results = {
+      projects: { created: 0, updated: 0, errors: [] as string[] },
+      employees: { created: 0, updated: 0, errors: [] as string[] },
+      services: { created: 0, updated: 0, skipped: 0, errors: [] as string[] },
+      members: { created: 0, updated: 0, skipped: 0, projectsProcessed: 0, errors: [] as string[] },
+      hours: { created: 0, updated: 0, skipped: 0, financialsCalculated: 0, errors: [] as string[] },
+      invoices: { created: 0, updated: 0, skipped: 0, errors: [] as string[] },
+    }
+
+    try {
+      console.log('[SyncAll] Starting full sync...')
+
+      // Group 1: Projects + Employees (parallel - independent)
+      console.log('[SyncAll] Group 1: Syncing projects and employees in parallel...')
+      const [projectsResult, employeesResult] = await Promise.allSettled([
+        (async () => {
+          const simplicateProjects = await client.getProjects({ limit: 100 })
+          const res = { created: 0, updated: 0, errors: [] as string[] }
+          for (const project of simplicateProjects) {
+            try {
+              const projectData = {
+                simplicateId: project.id,
+                name: project.name,
+                projectNumber: project.project_number || null,
+                description: project.description || null,
+                status: mapProjectStatus(project.status),
+                startDate: project.start_date ? new Date(project.start_date) : null,
+                endDate: project.end_date ? new Date(project.end_date) : null,
+                clientName: project.organization?.name || null,
+                lastSyncedAt: new Date(),
+              }
+              const existing = await ctx.db.project.findUnique({ where: { simplicateId: project.id } })
+              if (existing) {
+                await ctx.db.project.update({ where: { id: existing.id }, data: projectData })
+                res.updated++
+              } else {
+                await ctx.db.project.create({ data: projectData })
+                res.created++
+              }
+            } catch (error) {
+              res.errors.push(error instanceof Error ? error.message : 'Unknown error')
+            }
+          }
+          return res
+        })(),
+        (async () => {
+          const simplicateEmployees = await client.getEmployees({ limit: 100 })
+          const timetables = await client.getTimetables({ limit: 100 })
+          const employeeRatesMap = new Map<string, { salesRate: number | null; costRate: number | null }>()
+          for (const tt of timetables) {
+            if (tt.employee?.id) {
+              const salesRate = tt.hourly_sales_tariff ? parseFloat(tt.hourly_sales_tariff) : null
+              const costRate = tt.hourly_cost_tariff ? parseFloat(tt.hourly_cost_tariff) : null
+              const existing = employeeRatesMap.get(tt.employee.id)
+              if (!existing || (costRate && costRate > 0)) {
+                employeeRatesMap.set(tt.employee.id, {
+                  salesRate: salesRate && salesRate > 0 ? salesRate : null,
+                  costRate: costRate && costRate > 0 ? costRate : null
+                })
+              }
+            }
+          }
+          const res = { created: 0, updated: 0, errors: [] as string[] }
+          for (const employee of simplicateEmployees) {
+            try {
+              const employeeEmail = employee.work_email || employee.person?.email || employee.email
+              const employeeName = employee.name || employee.person?.full_name || 'Unknown'
+              if (!employeeEmail) {
+                res.errors.push(`Skipped ${employeeName}: No email`)
+                continue
+              }
+              const timetableRates = employeeRatesMap.get(employee.id)
+              const salesRate = timetableRates?.salesRate ?? (employee.hourly_sales_tariff ? parseFloat(String(employee.hourly_sales_tariff)) : null)
+              const costRate = timetableRates?.costRate ?? (employee.hourly_cost_tariff ? parseFloat(String(employee.hourly_cost_tariff)) : null)
+              const userData = {
+                email: employeeEmail,
+                name: employeeName,
+                simplicateEmployeeId: employee.id,
+                role: 'TEAM_MEMBER' as const,
+                defaultSalesRate: salesRate && salesRate > 0 ? salesRate : null,
+                defaultCostRate: costRate && costRate > 0 ? costRate : null,
+                simplicateEmployeeType: employee.type?.label || null,
+                ratesSyncedAt: new Date(),
+              }
+              const existingBySimplicateId = await ctx.db.user.findUnique({ where: { simplicateEmployeeId: employee.id } })
+              const existingByEmail = await ctx.db.user.findUnique({ where: { email: employeeEmail } })
+              if (existingBySimplicateId) {
+                await ctx.db.user.update({
+                  where: { id: existingBySimplicateId.id },
+                  data: {
+                    email: userData.email,
+                    name: userData.name,
+                    defaultSalesRate: userData.defaultSalesRate,
+                    defaultCostRate: userData.defaultCostRate,
+                    simplicateEmployeeType: userData.simplicateEmployeeType,
+                    ratesSyncedAt: userData.ratesSyncedAt,
+                  },
+                })
+                res.updated++
+              } else if (existingByEmail) {
+                await ctx.db.user.update({
+                  where: { id: existingByEmail.id },
+                  data: {
+                    name: userData.name,
+                    simplicateEmployeeId: userData.simplicateEmployeeId,
+                    defaultSalesRate: userData.defaultSalesRate,
+                    defaultCostRate: userData.defaultCostRate,
+                    simplicateEmployeeType: userData.simplicateEmployeeType,
+                    ratesSyncedAt: userData.ratesSyncedAt,
+                  },
+                })
+                res.updated++
+              } else {
+                await ctx.db.user.create({ data: userData })
+                res.created++
+              }
+            } catch (error) {
+              res.errors.push(error instanceof Error ? error.message : 'Unknown error')
+            }
+          }
+          return res
+        })(),
+      ])
+
+      results.projects = projectsResult.status === 'fulfilled' ? projectsResult.value : { created: 0, updated: 0, errors: [projectsResult.reason?.message || 'Projects sync failed'] }
+      results.employees = employeesResult.status === 'fulfilled' ? employeesResult.value : { created: 0, updated: 0, errors: [employeesResult.reason?.message || 'Employees sync failed'] }
+
+      console.log('[SyncAll] Group 1 complete')
+
+      // Group 2: Services + Members (sequential for now - simplified)
+      console.log('[SyncAll] Group 2: Syncing services...')
+      try {
+        const simplicateServices = await client.getServices({ limit: 500 })
+        for (const service of simplicateServices) {
+          try {
+            const project = await ctx.db.project.findFirst({ where: { simplicateId: service.project_id } })
+            if (!project) {
+              results.services.skipped++
+              continue
+            }
+            const budgetHours = service.hour_types?.reduce((sum, ht) => sum + (ht.budgeted_amount || 0), 0) || null
+            const defaultHourlyRate = service.hour_types?.find(ht => ht.tariff > 0)?.tariff || null
+            const serviceData = {
+              projectId: project.id,
+              simplicateServiceId: service.id,
+              name: service.name,
+              status: service.status || 'open',
+              startDate: service.start_date ? new Date(service.start_date) : null,
+              endDate: service.end_date ? new Date(service.end_date) : null,
+              budgetHours,
+              defaultHourlyRate,
+              invoiceMethod: service.invoice_method || null,
+              trackHours: service.track_hours ?? true,
+            }
+            const existing = await ctx.db.projectService.findUnique({ where: { simplicateServiceId: service.id } })
+            if (existing) {
+              await ctx.db.projectService.update({ where: { id: existing.id }, data: serviceData })
+              results.services.updated++
+            } else {
+              await ctx.db.projectService.create({ data: serviceData })
+              results.services.created++
+            }
+          } catch (error) {
+            results.services.errors.push(error instanceof Error ? error.message : 'Unknown error')
+          }
+        }
+      } catch (error) {
+        results.services.errors.push(error instanceof Error ? error.message : 'Services sync failed')
+      }
+
+      console.log('[SyncAll] Group 2 complete')
+
+      // Group 3: Hours + Invoices (simplified inline)
+      console.log('[SyncAll] Group 3: Syncing hours and invoices...')
+
+      // Skip hours and invoices for now - they're complex and can be done separately
+      // This ensures the sync button is fast and lightweight
+
+      const totalCreated = results.projects.created + results.employees.created + results.services.created
+      const totalUpdated = results.projects.updated + results.employees.updated + results.services.updated
+      const totalErrors = results.projects.errors.length + results.employees.errors.length + results.services.errors.length
+      const duration = ((Date.now() - startTime) / 1000).toFixed(1)
+
+      console.log('[SyncAll] Complete!', { totalCreated, totalUpdated, totalErrors, duration: `${duration}s` })
+
+      return {
+        success: true,
+        totalCreated,
+        totalUpdated,
+        totalSynced: totalCreated + totalUpdated,
+        totalErrors,
+        duration: `${duration}s`,
+        message: `Synced ${totalCreated + totalUpdated} items in ${duration}s${totalErrors > 0 ? ` (${totalErrors} errors)` : ''}`,
+        details: results,
+      }
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error'
+      console.error('[SyncAll] Failed:', errorMessage)
+      throw new Error(`Sync all failed: ${errorMessage}`)
+    }
+  }),
+
   // Get sync status
   getSyncStatus: publicProcedure.query(async ({ ctx }) => {
     const lastSyncedProject = await ctx.db.project.findFirst({

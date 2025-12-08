@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import {
@@ -39,6 +39,7 @@ import {
 } from '@/components/ui/dropdown-menu'
 import { SyncButton } from '@/components/admin/sync-button'
 import { cn } from '@/lib/utils'
+import { api } from '@/trpc/react'
 
 type NavItem = {
   title: string
@@ -165,6 +166,48 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   const isAutomationActive = automationSection.items.some(
     (item) => pathname === item.href || pathname.startsWith(`${item.href}/`)
   )
+
+  // Auto-sync functionality
+  const utils = api.useUtils()
+  const { data: syncStatus } = api.sync.getSyncStatus.useQuery(undefined, {
+    refetchOnMount: true,
+    staleTime: 5 * 60 * 1000, // Cache for 5 minutes
+  })
+
+  useEffect(() => {
+    // Check if we should trigger an auto-sync
+    const shouldAutoSync = () => {
+      if (!syncStatus?.lastSyncedAt) return true // Never synced before
+
+      const lastSync = new Date(syncStatus.lastSyncedAt)
+      const now = new Date()
+      const diffMinutes = (now.getTime() - lastSync.getTime()) / 60000
+
+      // Auto-sync if last sync was more than 15 minutes ago
+      return diffMinutes > 15
+    }
+
+    if (shouldAutoSync()) {
+      console.log('[AutoSync] Triggering background sync (stale data detected)...')
+
+      // Trigger sync in background without blocking UI
+      fetch('/api/trpc/sync.syncAll', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({}),
+      })
+        .then((res) => {
+          if (res.ok) {
+            console.log('[AutoSync] Background sync completed')
+            // Invalidate queries to refresh UI
+            utils.invalidate()
+          }
+        })
+        .catch((err) => {
+          console.error('[AutoSync] Background sync failed:', err)
+        })
+    }
+  }, [syncStatus, utils])
 
   return (
     <div className="flex min-h-screen">
