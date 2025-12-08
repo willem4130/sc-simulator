@@ -99,9 +99,17 @@ Based on `Planning/SUPPLY_CHAIN_SIMULATOR_PLAN.md`:
 - ✅ Deleted all old Simplicate code (21,991 lines removed)
 - ✅ Fixed Prisma nullable unique constraint type issue in variable router
 
-**Next Steps**: Set up `.env`, run first migration, build first complete feature with UI
+**Next Steps**: Build UI components (database-independent), then deploy to production with Vercel Postgres
 
-### 🚧 Phase 2: Calculation Engine (NEXT)
+### 🚧 Phase 1.5: UI Foundation (IN PROGRESS)
+- Build shadcn/ui components (Button, Table, Form, Dialog, Card)
+- Create Scenario List page with mock data
+- Create Scenario Create/Edit forms with Zod validation
+- Build Variable management UI
+- Build Parameter management UI
+- Style with Tailwind + dark mode support
+
+### 📋 Phase 2: Calculation Engine
 - Formula parser/evaluator (supports variables, operators, functions)
 - Dependency resolution with topological sort (Kahn's algorithm)
 - Circular dependency detection
@@ -203,16 +211,34 @@ Based on `Planning/SUPPLY_CHAIN_SIMULATOR_PLAN.md`:
 - **main**: Original Simplicate Automations baseline (pre-migration snapshot)
 - **phase1-foundation**: Current working branch with Supply Chain foundation (4 commits)
 
-### Quick Start (When Ready)
+### Production-Ready Deployment Setup
+
+**Infrastructure**: Vercel (hosting) + Vercel Postgres (database) + Vercel Blob (file storage)
+
+**Deployment Steps**:
 ```bash
-# 1. Create .env file
-echo "DATABASE_URL=postgresql://user:pass@localhost:5432/supply_chain_simulator" > .env
-echo "NEXTAUTH_SECRET=$(openssl rand -base64 32)" >> .env
-echo "NEXTAUTH_URL=http://localhost:3000" >> .env
+# 1. Install Vercel CLI
+npm i -g vercel
 
-# 2. Run first migration
-npm run db:push
+# 2. Link to Vercel project
+vercel link
 
-# 3. Start dev server
-npm run dev
+# 3. Add production database (Vercel Postgres)
+vercel postgres create
+
+# 4. Set environment variables
+vercel env add DATABASE_URL  # From Vercel Postgres connection string
+vercel env add NEXTAUTH_SECRET  # Generate: openssl rand -base64 32
+vercel env add NEXTAUTH_URL  # Your production domain
+
+# 5. Run migrations
+npx prisma migrate deploy
+
+# 6. Deploy to production
+vercel --prod
 ```
+
+**Local Development** (optional):
+- Use Vercel Postgres connection string with `?sslmode=require`
+- Pull env vars: `vercel env pull .env.local`
+- Start dev server: `npm run dev`
