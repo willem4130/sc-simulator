@@ -1,0 +1,19 @@
+To get exactly: https://supply-chain-simulator.vercel.app
+
+During Vercel setup:
+
+1. In "Configure Project" step
+2. Project Name field: supply-chain-simulator
+3. This gives you: supply-chain-simulator.vercel.app
+
+⚠️ NOTE: If "supply-chain-simulator" is taken by another user:
+- Vercel will add a random suffix: supply-chain-simulator-abc123.vercel.app
+- You can then add a custom domain later (free on any plan)
+
+Custom Domain Options (if name is taken):
+- supply-chain-sim.vercel.app
+- sc-simulator.vercel.app  
+- scsim.vercel.app
+- Or buy your own domain (e.g., mysupplychain.com)
+
+To check availability, you can try deploying - Vercel will tell you immediately if the name is available.
