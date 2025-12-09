@@ -24,6 +24,7 @@ import {
 } from '@/components/ui/table'
 import { toast } from 'sonner'
 import { Loader2, Save } from 'lucide-react'
+import { Badge } from '@/components/ui/badge'
 import type { Variable, VariableValue } from '@prisma/client'
 import type { Period } from '@/lib/utils'
 
@@ -145,14 +146,27 @@ export default function VariableValueForm({
             </TableHeader>
             <TableBody>
               {variables
-                .sort((a, b) => a.displayOrder - b.displayOrder)
+                .sort((a, b) => {
+                  // Sort: INPUT variables first, then OUTPUT variables
+                  if (a.variableType !== b.variableType) {
+                    return a.variableType === 'INPUT' ? -1 : 1
+                  }
+                  return a.displayOrder - b.displayOrder
+                })
                 .map((variable) => (
-                  <TableRow key={variable.id}>
+                  <TableRow key={variable.id} className={variable.variableType === 'OUTPUT' ? 'bg-muted/30' : ''}>
                     <TableCell className="font-medium">
-                      <div>{variable.displayName}</div>
-                      {variable.unit && (
-                        <div className="text-xs text-muted-foreground">({variable.unit})</div>
-                      )}
+                      <div className="flex items-center gap-2">
+                        <div>
+                          <div>{variable.displayName}</div>
+                          {variable.unit && (
+                            <div className="text-xs text-muted-foreground">({variable.unit})</div>
+                          )}
+                        </div>
+                        <Badge variant={variable.variableType === 'INPUT' ? 'default' : 'secondary'} className="text-xs">
+                          {variable.variableType}
+                        </Badge>
+                      </div>
                     </TableCell>
                     {periods.map((period) => {
                       const fieldName = `values.${variable.id}_${period.value}` as const
@@ -176,7 +190,8 @@ export default function VariableValueForm({
                                     onBlur={field.onBlur}
                                     name={field.name}
                                     ref={field.ref}
-                                    disabled={field.disabled}
+                                    disabled={field.disabled || variable.variableType === 'OUTPUT'}
+                                    readOnly={variable.variableType === 'OUTPUT'}
                                   />
                                 </FormControl>
                                 <FormMessage />
