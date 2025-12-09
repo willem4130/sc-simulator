@@ -28,6 +28,7 @@ model Organisatie {
 
   // Relations
   users           User[]
+  projects        Project[]
   scenarios       Scenario[]
   variables       Variable[]
   parameters      Parameter[]
@@ -114,6 +115,34 @@ model VerificationToken {
 }
 
 // ==========================================
+// PROJECTS - ORGANIZATIONAL UNITS
+// ==========================================
+
+model Project {
+  id          String  @id @default(cuid())
+  name        String
+  description String?
+
+  // Multi-tenant link
+  organizationId String
+  organisatie    Organisatie @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  // Metadata
+  tags   String[] // For categorization/filtering
+  status String   @default("ACTIVE") // ACTIVE, ARCHIVED, DELETED
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  scenarios Scenario[]
+
+  @@index([organizationId])
+  @@index([status])
+  @@map("projects")
+}
+
+// ==========================================
 // SCENARIOS - WHAT-IF ANALYSES
 // ==========================================
 
@@ -126,8 +155,12 @@ model Scenario {
   organizationId String
   organisatie    Organisatie @relation(fields: [organizationId], references: [id], onDelete: Cascade)
 
+  // Project link
+  projectId String
+  project   Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
   // Scenario configuration
-  isBaseline     Boolean        @default(false) // Only one baseline per organization
+  isBaseline     Boolean        @default(false) // Only one baseline per project
   timePeriodType TimePeriodType @default(SINGLE_POINT)
   startDate      DateTime? // For time-series scenarios
   endDate        DateTime?
@@ -148,6 +181,7 @@ model Scenario {
   calculations   Calculation[]
 
   @@index([organizationId])
+  @@index([projectId])
   @@index([parentId])
   @@index([isBaseline])
 }

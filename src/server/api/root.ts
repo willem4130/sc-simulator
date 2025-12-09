@@ -4,6 +4,7 @@
  */
 import { createTRPCRouter } from '@/server/api/trpc'
 import { organizationRouter } from '@/server/api/routers/organization'
+import { projectRouter } from '@/server/api/routers/project'
 import { scenarioRouter } from '@/server/api/routers/scenario'
 import { variableRouter } from '@/server/api/routers/variable'
 import { parameterRouter } from '@/server/api/routers/parameter'
@@ -14,6 +15,7 @@ import { exportRouter } from '@/server/api/routers/export'
 
 export const appRouter = createTRPCRouter({
   organization: organizationRouter,
+  project: projectRouter,
   scenario: scenarioRouter,
   variable: variableRouter,
   parameter: parameterRouter,

@@ -64,6 +64,7 @@ export const scenarioRouter = createTRPCRouter({
     .input(
       z.object({
         organizationId: z.string(),
+        projectId: z.string(),
         name: z.string().min(1),
         description: z.string().optional(),
         isBaseline: z.boolean().default(false),
@@ -73,11 +74,12 @@ export const scenarioRouter = createTRPCRouter({
       })
     )
     .mutation(async ({ ctx, input }) => {
-      // If setting as baseline, unset other baselines
+      // If setting as baseline, unset other baselines for this project
       if (input.isBaseline) {
         await ctx.db.scenario.updateMany({
           where: {
             organizationId: input.organizationId,
+            projectId: input.projectId,
             isBaseline: true,
           },
           data: { isBaseline: false },
@@ -93,6 +95,7 @@ export const scenarioRouter = createTRPCRouter({
           startDate: input.startDate,
           endDate: input.endDate,
           organizationId: input.organizationId,
+          projectId: input.projectId,
         },
       })
     }),
@@ -205,6 +208,7 @@ export const scenarioRouter = createTRPCRouter({
           endDate: source.endDate,
           parentId: source.id,
           organizationId: input.organizationId,
+          projectId: source.projectId,
         },
       })
 

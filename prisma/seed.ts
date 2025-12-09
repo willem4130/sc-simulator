@@ -11,6 +11,7 @@
  * Creates:
  * - 1 Organization (RetailCo)
  * - 1 Admin User
+ * - 1 Project (Supply Chain NL)
  * - 4 Parameters (baseline values)
  * - 7 Variables (3 INPUT + 4 OUTPUT)
  * - 3 Scenarios with 7 years each (2025-2031)
@@ -44,7 +45,19 @@ async function main() {
   })
   console.log('✅ Created user:', user.email)
 
-  // 3. Create Parameters (baseline values for comparison)
+  // 3. Create Project
+  const project = await prisma.project.create({
+    data: {
+      organizationId: org.id,
+      name: 'Supply Chain NL',
+      description: 'Dutch supply chain optimization project',
+      tags: ['supply-chain', 'netherlands', 'voorraad'],
+      status: 'ACTIVE',
+    },
+  })
+  console.log('✅ Created project:', project.name)
+
+  // 4. Create Parameters (baseline values for comparison)
   const parameters = await prisma.$transaction([
     prisma.parameter.create({
       data: {
@@ -93,7 +106,7 @@ async function main() {
   ])
   console.log('✅ Created 4 baseline parameters')
 
-  // 4. Create 7 Variables (3 INPUT + 4 OUTPUT)
+  // 5. Create 7 Variables (3 INPUT + 4 OUTPUT)
   const variables = await prisma.$transaction([
     // INPUT 1: Omzet (absolute euros)
     prisma.variable.create({
@@ -210,10 +223,11 @@ async function main() {
   })
   const varMap = new Map(allVars.map((v) => [v.name, v.id]))
 
-  // 5. Create 3 Scenarios
+  // 6. Create 3 Scenarios (all linked to the project)
   const baselineScenario = await prisma.scenario.create({
     data: {
       organizationId: org.id,
+      projectId: project.id,
       name: 'Baseline 2025',
       description: 'Benchmark year with flat projections',
       isBaseline: true,
@@ -226,6 +240,7 @@ async function main() {
   const scenarioA = await prisma.scenario.create({
     data: {
       organizationId: org.id,
+      projectId: project.id,
       name: 'Optimalisatie A',
       description: 'Efficiency scenario: +5% revenue/year, -10% inventory weeks/year, stable SKUs',
       isBaseline: false,
@@ -238,6 +253,7 @@ async function main() {
   const scenarioB = await prisma.scenario.create({
     data: {
       organizationId: org.id,
+      projectId: project.id,
       name: 'Groei B',
       description: 'Growth scenario: +10% revenue/year, stable inventory weeks, +1000 SKUs/year',
       isBaseline: false,
@@ -247,9 +263,9 @@ async function main() {
     },
   })
 
-  console.log('✅ Created 3 scenarios')
+  console.log('✅ Created 3 scenarios (all in Supply Chain NL project)')
 
-  // 6. Create VariableValues for all scenarios (7 years each: 2025-2031)
+  // 7. Create VariableValues for all scenarios (7 years each: 2025-2031)
   const years = [2025, 2026, 2027, 2028, 2029, 2030, 2031]
 
   // Baseline values
@@ -326,6 +342,7 @@ async function main() {
   console.log('📊 Summary:')
   console.log('  - 1 Organization: RetailCo')
   console.log('  - 1 User: admin@retailco.com')
+  console.log('  - 1 Project: Supply Chain NL')
   console.log('  - 4 Baseline Parameters:')
   console.log(`    • PARAM_BASELINE_OMZET = €${BASELINE_OMZET.toLocaleString()}`)
   console.log(`    • PARAM_BASELINE_VOORRAAD = 10,000 pallets (starting value for benchmark)`)
