@@ -1,15 +1,18 @@
 /**
- * Seed script for Supply Chain Scenario Simulator - Absolute Values Model
+ * Seed script for Supply Chain Scenario Simulator - Corrected Model
  *
- * Option 1: Direct input of absolute values
- * - INPUT: Omzet (euros), Voorraad (pallets), Aantal SKUs
- * - OUTPUT: Calculate percentages as derived values
+ * Data Model:
+ * - INPUTS: Omzet (EUR), Voorraad in Weken (weeks), Aantal SKUs (number)
+ * - PARAMETERS: Baseline values (€1M revenue, 10000 pallets, 6500 SKUs, 4 weeks coverage)
+ * - OUTPUTS: Calculated percentages + Voorraad in Pallets (calculated)
+ *
+ * Formula: OUTPUT_VOORRAAD_PALLETS = BASELINE_VOORRAAD * (Omzet%/100) * (SKU%/100) * (Weken%/100)
  *
  * Creates:
  * - 1 Organization (RetailCo)
  * - 1 Admin User
- * - 3 Parameters (baseline values for comparison)
- * - 6 Variables (3 INPUT + 3 OUTPUT)
+ * - 4 Parameters (baseline values)
+ * - 7 Variables (3 INPUT + 4 OUTPUT)
  * - 3 Scenarios with 7 years each (2025-2031)
  */
 
@@ -25,7 +28,7 @@ async function main() {
     data: {
       name: 'RetailCo',
       slug: 'retailco',
-      description: 'Supply chain scenario modeling with absolute values',
+      description: 'Supply chain scenario modeling with voorraad calculation',
     },
   })
   console.log('✅ Created organization:', org.name)
@@ -59,10 +62,10 @@ async function main() {
         organizationId: org.id,
         name: 'PARAM_BASELINE_VOORRAAD',
         displayName: 'Baseline Voorraad',
-        value: 5000, // 5000 pallets baseline inventory
+        value: 10000, // 10000 pallets baseline inventory (starting value for benchmark year)
         category: 'BASELINE',
         unit: 'pallets',
-        description: 'Baseline inventory level for percentage calculations',
+        description: 'Starting inventory level for benchmark year (used in voorraad calculation)',
       },
     }),
     prisma.parameter.create({
@@ -76,10 +79,21 @@ async function main() {
         description: 'Baseline number of SKUs for percentage calculations',
       },
     }),
+    prisma.parameter.create({
+      data: {
+        organizationId: org.id,
+        name: 'PARAM_BASELINE_VOORRAAD_WEKEN',
+        displayName: 'Baseline Voorraad Weken',
+        value: 4, // 4 weeks baseline coverage
+        category: 'BASELINE',
+        unit: 'weken',
+        description: 'Baseline inventory coverage in weeks for percentage calculations',
+      },
+    }),
   ])
-  console.log('✅ Created 3 baseline parameters')
+  console.log('✅ Created 4 baseline parameters')
 
-  // 4. Create 6 Variables (3 INPUT + 3 OUTPUT)
+  // 4. Create 7 Variables (3 INPUT + 4 OUTPUT)
   const variables = await prisma.$transaction([
     // INPUT 1: Omzet (absolute euros)
     prisma.variable.create({
@@ -96,16 +110,16 @@ async function main() {
         displayOrder: 1,
       },
     }),
-    // INPUT 2: Voorraad (absolute pallets)
+    // INPUT 2: Voorraad in Weken (absolute weeks)
     prisma.variable.create({
       data: {
         organizationId: org.id,
-        name: 'INPUT_VOORRAAD',
-        displayName: 'Voorraad',
+        name: 'INPUT_VOORRAAD_IN_WEKEN',
+        displayName: 'Voorraad in Weken',
         variableType: 'INPUT',
         category: 'VOORRAAD',
-        unit: 'pallets',
-        description: 'Inventory level in number of pallets',
+        unit: 'weken',
+        description: 'Inventory coverage in weeks',
         formula: null,
         dependencies: [],
         displayOrder: 2,
@@ -141,22 +155,7 @@ async function main() {
         displayOrder: 4,
       },
     }),
-    // OUTPUT 2: Voorraad Percentage (derived)
-    prisma.variable.create({
-      data: {
-        organizationId: org.id,
-        name: 'OUTPUT_VOORRAAD_PERCENTAGE',
-        displayName: 'Voorraad %',
-        variableType: 'OUTPUT',
-        category: 'VOORRAAD',
-        unit: '%',
-        description: 'Inventory as percentage of baseline',
-        formula: '(INPUT_VOORRAAD / PARAM_BASELINE_VOORRAAD) * 100',
-        dependencies: ['INPUT_VOORRAAD'],
-        displayOrder: 5,
-      },
-    }),
-    // OUTPUT 3: SKU Growth (derived)
+    // OUTPUT 2: SKU Growth (derived)
     prisma.variable.create({
       data: {
         organizationId: org.id,
@@ -168,11 +167,41 @@ async function main() {
         description: 'SKU count as percentage of baseline',
         formula: '(INPUT_AANTAL_SKUS / PARAM_BASELINE_SKUS) * 100',
         dependencies: ['INPUT_AANTAL_SKUS'],
+        displayOrder: 5,
+      },
+    }),
+    // OUTPUT 3: Voorraad Weken Percentage (derived)
+    prisma.variable.create({
+      data: {
+        organizationId: org.id,
+        name: 'OUTPUT_VOORRAAD_WEKEN_PERCENTAGE',
+        displayName: 'Voorraad Weken %',
+        variableType: 'OUTPUT',
+        category: 'VOORRAAD',
+        unit: '%',
+        description: 'Inventory weeks as percentage of baseline',
+        formula: '(INPUT_VOORRAAD_IN_WEKEN / PARAM_BASELINE_VOORRAAD_WEKEN) * 100',
+        dependencies: ['INPUT_VOORRAAD_IN_WEKEN'],
         displayOrder: 6,
       },
     }),
+    // OUTPUT 4: Voorraad in Pallets (CALCULATED - the main output!)
+    prisma.variable.create({
+      data: {
+        organizationId: org.id,
+        name: 'OUTPUT_VOORRAAD_PALLETS',
+        displayName: 'Voorraad (Pallets)',
+        variableType: 'OUTPUT',
+        category: 'VOORRAAD',
+        unit: 'pallets',
+        description: 'Calculated inventory in pallets: BASELINE_VOORRAAD * (Omzet%/100) * (SKU%/100) * (Weken%/100)',
+        formula: 'PARAM_BASELINE_VOORRAAD * (OUTPUT_OMZET_PERCENTAGE / 100) * (OUTPUT_SKU_GROWTH / 100) * (OUTPUT_VOORRAAD_WEKEN_PERCENTAGE / 100)',
+        dependencies: ['OUTPUT_OMZET_PERCENTAGE', 'OUTPUT_SKU_GROWTH', 'OUTPUT_VOORRAAD_WEKEN_PERCENTAGE'],
+        displayOrder: 7,
+      },
+    }),
   ])
-  console.log('✅ Created 6 variables (3 INPUT + 3 OUTPUT)')
+  console.log('✅ Created 7 variables (3 INPUT + 4 OUTPUT)')
 
   // Get variable IDs
   const allVars = await prisma.variable.findMany({
@@ -198,7 +227,7 @@ async function main() {
     data: {
       organizationId: org.id,
       name: 'Optimalisatie A',
-      description: 'Growth scenario: +5% revenue/year, -5% inventory/year, +500 SKUs/year',
+      description: 'Efficiency scenario: +5% revenue/year, -10% inventory weeks/year, stable SKUs',
       isBaseline: false,
       timePeriodType: 'YEARLY',
       startDate: new Date('2025-01-01'),
@@ -210,7 +239,7 @@ async function main() {
     data: {
       organizationId: org.id,
       name: 'Groei B',
-      description: 'Aggressive growth: +10% revenue/year, +10% inventory/year, +1500 SKUs/year',
+      description: 'Growth scenario: +10% revenue/year, stable inventory weeks, +1000 SKUs/year',
       isBaseline: false,
       timePeriodType: 'YEARLY',
       startDate: new Date('2025-01-01'),
@@ -225,18 +254,18 @@ async function main() {
 
   // Baseline values
   const BASELINE_OMZET = 1000000 // €1M
-  const BASELINE_VOORRAAD = 5000 // 5000 pallets
+  const BASELINE_VOORRAAD_WEKEN = 4 // 4 weeks coverage
   const BASELINE_SKUS = 6500 // 6500 SKUs
 
   // Helper to create values for a scenario
   const createValues = async (
     scenarioId: string,
     scenarioName: string,
-    getValuesForYear: (year: number) => { omzet: number; voorraad: number; skus: number }
+    getValuesForYear: (year: number) => { omzet: number; voorraadWeken: number; skus: number }
   ) => {
     const values = []
     for (const year of years) {
-      const { omzet, voorraad, skus } = getValuesForYear(year)
+      const { omzet, voorraadWeken, skus } = getValuesForYear(year)
       values.push(
         {
           scenarioId,
@@ -247,8 +276,8 @@ async function main() {
         },
         {
           scenarioId,
-          variableId: varMap.get('INPUT_VOORRAAD')!,
-          value: voorraad,
+          variableId: varMap.get('INPUT_VOORRAAD_IN_WEKEN')!,
+          value: voorraadWeken,
           periodStart: new Date(`${year}-01-01`),
           periodEnd: new Date(`${year}-12-31`),
         },
@@ -268,27 +297,27 @@ async function main() {
   // Baseline: Flat projections (no growth)
   await createValues(baselineScenario.id, 'Baseline 2025', () => ({
     omzet: BASELINE_OMZET,
-    voorraad: BASELINE_VOORRAAD,
+    voorraadWeken: BASELINE_VOORRAAD_WEKEN,
     skus: BASELINE_SKUS,
   }))
 
-  // Optimalisatie A: +5% revenue, -5% inventory, +500 SKUs per year
+  // Optimalisatie A: +5% revenue, -10% inventory weeks, stable SKUs per year
   await createValues(scenarioA.id, 'Optimalisatie A', (year) => {
     const yearsFromBaseline = year - 2025
     return {
       omzet: Math.round(BASELINE_OMZET * (1 + 0.05 * yearsFromBaseline)),
-      voorraad: Math.round(BASELINE_VOORRAAD * (1 - 0.05 * yearsFromBaseline)),
-      skus: BASELINE_SKUS + yearsFromBaseline * 500,
+      voorraadWeken: Math.max(1, BASELINE_VOORRAAD_WEKEN * (1 - 0.1 * yearsFromBaseline)), // Don't go below 1 week
+      skus: BASELINE_SKUS, // Stable
     }
   })
 
-  // Groei B: +10% revenue, +10% inventory, +1500 SKUs per year
+  // Groei B: +10% revenue, stable weeks, +1000 SKUs per year
   await createValues(scenarioB.id, 'Groei B', (year) => {
     const yearsFromBaseline = year - 2025
     return {
       omzet: Math.round(BASELINE_OMZET * (1 + 0.1 * yearsFromBaseline)),
-      voorraad: Math.round(BASELINE_VOORRAAD * (1 + 0.1 * yearsFromBaseline)),
-      skus: BASELINE_SKUS + yearsFromBaseline * 1500,
+      voorraadWeken: BASELINE_VOORRAAD_WEKEN, // Stable
+      skus: BASELINE_SKUS + yearsFromBaseline * 1000,
     }
   })
 
@@ -297,23 +326,29 @@ async function main() {
   console.log('📊 Summary:')
   console.log('  - 1 Organization: RetailCo')
   console.log('  - 1 User: admin@retailco.com')
-  console.log('  - 3 Baseline Parameters:')
+  console.log('  - 4 Baseline Parameters:')
   console.log(`    • PARAM_BASELINE_OMZET = €${BASELINE_OMZET.toLocaleString()}`)
-  console.log(`    • PARAM_BASELINE_VOORRAAD = ${BASELINE_VOORRAAD} pallets`)
+  console.log(`    • PARAM_BASELINE_VOORRAAD = 10,000 pallets (starting value for benchmark)`)
   console.log(`    • PARAM_BASELINE_SKUS = ${BASELINE_SKUS} SKUs`)
-  console.log('  - 6 Variables:')
-  console.log('    • INPUT_OMZET (EUR, absolute)')
-  console.log('    • INPUT_VOORRAAD (pallets, absolute)')
-  console.log('    • INPUT_AANTAL_SKUS (aantal, absolute)')
-  console.log('    • OUTPUT_OMZET_PERCENTAGE (calculated)')
-  console.log('    • OUTPUT_VOORRAAD_PERCENTAGE (calculated)')
-  console.log('    • OUTPUT_SKU_GROWTH (calculated)')
+  console.log(`    • PARAM_BASELINE_VOORRAAD_WEKEN = ${BASELINE_VOORRAAD_WEKEN} weeks`)
+  console.log('  - 7 Variables:')
+  console.log('    INPUTS (3):')
+  console.log('      • INPUT_OMZET (EUR, absolute)')
+  console.log('      • INPUT_VOORRAAD_IN_WEKEN (weeks, absolute)')
+  console.log('      • INPUT_AANTAL_SKUS (aantal, absolute)')
+  console.log('    OUTPUTS (4):')
+  console.log('      • OUTPUT_OMZET_PERCENTAGE (calculated %)')
+  console.log('      • OUTPUT_SKU_GROWTH (calculated %)')
+  console.log('      • OUTPUT_VOORRAAD_WEKEN_PERCENTAGE (calculated %)')
+  console.log('      • OUTPUT_VOORRAAD_PALLETS (calculated pallets) ⭐ MAIN OUTPUT')
   console.log('  - 3 Scenarios × 7 years × 3 inputs = 63 VariableValue records:')
-  console.log('    1. Baseline 2025: Flat (€1M, 5000 pallets, 6500 SKUs)')
-  console.log('    2. Optimalisatie A: Efficiency (+5% revenue/yr, -5% inventory/yr)')
-  console.log('    3. Groei B: Aggressive growth (+10% revenue/yr, +10% inventory/yr)')
+  console.log('    1. Baseline 2025: Flat (€1M, 4 weeks, 6500 SKUs)')
+  console.log('    2. Optimalisatie A: Efficiency (+5% revenue/yr, -10% weeks/yr, stable SKUs)')
+  console.log('    3. Groei B: Growth (+10% revenue/yr, stable weeks, +1000 SKUs/yr)')
   console.log('')
-  console.log('✅ Ready to test! Run calculations to see OUTPUT percentages.')
+  console.log('✅ Ready to test! Run calculations to see OUTPUT_VOORRAAD_PALLETS.')
+  console.log('')
+  console.log('Formula: OUTPUT_VOORRAAD_PALLETS = 10000 * (Omzet%/100) * (SKU%/100) * (Weken%/100)')
 }
 
 main()
