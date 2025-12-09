@@ -2,7 +2,7 @@
  * Calculation router - Calculation engine interface
  */
 import { z } from 'zod'
-import { createTRPCRouter, organizationProcedure } from '@/server/api/trpc'
+import { createTRPCRouter, organizationProcedure, publicProcedure } from '@/server/api/trpc'
 import { runCalculation } from '@/lib/calculation/engine'
 import { validateFormula } from '@/lib/calculation/formula-parser'
 import type {
@@ -15,8 +15,9 @@ import type {
 export const calculationRouter = createTRPCRouter({
   /**
    * Get latest calculation for a scenario
+   * TODO: Change back to organizationProcedure once authentication is implemented
    */
-  getLatest: organizationProcedure
+  getLatest: publicProcedure
     .input(
       z.object({
         organizationId: z.string(),
@@ -32,8 +33,9 @@ export const calculationRouter = createTRPCRouter({
 
   /**
    * Get all calculations for a scenario
+   * TODO: Change back to organizationProcedure once authentication is implemented
    */
-  getAll: organizationProcedure
+  getAll: publicProcedure
     .input(
       z.object({
         organizationId: z.string(),

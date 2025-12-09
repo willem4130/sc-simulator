@@ -28,8 +28,9 @@ export const scenarioRouter = createTRPCRouter({
 
   /**
    * Get scenario by ID with all data
+   * TODO: Change back to organizationProcedure once authentication is implemented
    */
-  getById: organizationProcedure
+  getById: publicProcedure
     .input(
       z.object({
         organizationId: z.string(),

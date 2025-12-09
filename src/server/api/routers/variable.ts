@@ -2,14 +2,15 @@
  * Variable router - Variable definitions and values
  */
 import { z } from 'zod'
-import { createTRPCRouter, organizationProcedure } from '@/server/api/trpc'
+import { createTRPCRouter, organizationProcedure, publicProcedure } from '@/server/api/trpc'
 import { VariableType } from '@prisma/client'
 
 export const variableRouter = createTRPCRouter({
   /**
    * List all variables for an organization
+   * TODO: Change back to organizationProcedure once authentication is implemented
    */
-  list: organizationProcedure
+  list: publicProcedure
     .input(z.object({ organizationId: z.string() }))
     .query(async ({ ctx, input }) => {
       return ctx.db.variable.findMany({
@@ -201,8 +202,9 @@ export const variableRouter = createTRPCRouter({
 
   /**
    * Get variable values for a scenario
+   * TODO: Change back to organizationProcedure once authentication is implemented
    */
-  getValues: organizationProcedure
+  getValues: publicProcedure
     .input(
       z.object({
         organizationId: z.string(),
