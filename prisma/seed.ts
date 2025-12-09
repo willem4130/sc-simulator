@@ -1,13 +1,16 @@
 /**
- * Seed script for Supply Chain Scenario Simulator - Simplified Percentage Model
+ * Seed script for Supply Chain Scenario Simulator - Absolute Values Model
+ *
+ * Option 1: Direct input of absolute values
+ * - INPUT: Omzet (euros), Voorraad (pallets), Aantal SKUs
+ * - OUTPUT: Calculate percentages as derived values
  *
  * Creates:
  * - 1 Organization (RetailCo)
  * - 1 Admin User
- * - 1 Parameter (PARAM_BENCHMARK_PALLETS)
- * - 4 Variables (3 INPUT + 1 OUTPUT)
- * - 70 SKU Effect Curves (6500-10000 in steps of 50)
- * - 3 Scenarios with 7 years each (2025-2031) = 63 VariableValue records
+ * - 3 Parameters (baseline values for comparison)
+ * - 6 Variables (3 INPUT + 3 OUTPUT)
+ * - 3 Scenarios with 7 years each (2025-2031)
  */
 
 import { PrismaClient } from '@prisma/client'
@@ -22,7 +25,7 @@ async function main() {
     data: {
       name: 'RetailCo',
       slug: 'retailco',
-      description: 'Supply chain scenario modeling with SKU effect curves',
+      description: 'Supply chain scenario modeling with absolute values',
     },
   })
   console.log('✅ Created organization:', org.name)
@@ -38,47 +41,71 @@ async function main() {
   })
   console.log('✅ Created user:', user.email)
 
-  // 3. Create Parameter (benchmark pallets)
-  const param = await prisma.parameter.create({
-    data: {
-      organizationId: org.id,
-      name: 'PARAM_BENCHMARK_PALLETS',
-      displayName: 'Benchmark Pallets',
-      value: 4975,
-      category: 'BENCHMARK',
-      unit: 'pallets',
-      description: 'Baseline pallet count for percentage calculations',
-    },
-  })
-  console.log('✅ Created parameter:', param.name)
+  // 3. Create Parameters (baseline values for comparison)
+  const parameters = await prisma.$transaction([
+    prisma.parameter.create({
+      data: {
+        organizationId: org.id,
+        name: 'PARAM_BASELINE_OMZET',
+        displayName: 'Baseline Omzet',
+        value: 1000000, // €1M baseline revenue
+        category: 'BASELINE',
+        unit: 'EUR',
+        description: 'Baseline annual revenue for percentage calculations',
+      },
+    }),
+    prisma.parameter.create({
+      data: {
+        organizationId: org.id,
+        name: 'PARAM_BASELINE_VOORRAAD',
+        displayName: 'Baseline Voorraad',
+        value: 5000, // 5000 pallets baseline inventory
+        category: 'BASELINE',
+        unit: 'pallets',
+        description: 'Baseline inventory level for percentage calculations',
+      },
+    }),
+    prisma.parameter.create({
+      data: {
+        organizationId: org.id,
+        name: 'PARAM_BASELINE_SKUS',
+        displayName: 'Baseline SKUs',
+        value: 6500, // 6500 SKUs baseline
+        category: 'BASELINE',
+        unit: 'aantal',
+        description: 'Baseline number of SKUs for percentage calculations',
+      },
+    }),
+  ])
+  console.log('✅ Created 3 baseline parameters')
 
-  // 4. Create 4 Variables (3 INPUT + 1 OUTPUT)
+  // 4. Create 6 Variables (3 INPUT + 3 OUTPUT)
   const variables = await prisma.$transaction([
-    // INPUT 1: Omzet Percentage
+    // INPUT 1: Omzet (absolute euros)
     prisma.variable.create({
       data: {
         organizationId: org.id,
-        name: 'INPUT_OMZET_PERCENTAGE',
-        displayName: 'Omzet %',
+        name: 'INPUT_OMZET',
+        displayName: 'Omzet',
         variableType: 'INPUT',
         category: 'BUSINESS',
-        unit: '%',
-        description: 'Revenue percentage change vs benchmark (100 = no change)',
+        unit: 'EUR',
+        description: 'Annual revenue in euros',
         formula: null,
         dependencies: [],
         displayOrder: 1,
       },
     }),
-    // INPUT 2: Voorraad Percentage
+    // INPUT 2: Voorraad (absolute pallets)
     prisma.variable.create({
       data: {
         organizationId: org.id,
-        name: 'INPUT_VOORRAAD_PERCENTAGE',
-        displayName: 'Voorraad %',
+        name: 'INPUT_VOORRAAD',
+        displayName: 'Voorraad',
         variableType: 'INPUT',
         category: 'VOORRAAD',
-        unit: '%',
-        description: 'Inventory weeks percentage change vs benchmark (100 = no change)',
+        unit: 'pallets',
+        description: 'Inventory level in number of pallets',
         formula: null,
         dependencies: [],
         displayOrder: 2,
@@ -93,29 +120,59 @@ async function main() {
         variableType: 'INPUT',
         category: 'BUSINESS',
         unit: 'aantal',
-        description: 'Number of SKUs (for effect curve lookup)',
+        description: 'Number of active SKUs',
         formula: null,
         dependencies: [],
         displayOrder: 3,
       },
     }),
-    // OUTPUT: Pallets
+    // OUTPUT 1: Omzet Percentage (derived)
     prisma.variable.create({
       data: {
         organizationId: org.id,
-        name: 'OUTPUT_PALLETS',
-        displayName: 'Pallets',
+        name: 'OUTPUT_OMZET_PERCENTAGE',
+        displayName: 'Omzet %',
         variableType: 'OUTPUT',
-        category: 'VOORRAAD',
-        unit: 'pallets',
-        description: 'Calculated pallets using: BENCHMARK * (omzet%/100) * SKU_EFFECT * (voorraad%/100)',
-        formula: 'PARAM_BENCHMARK_PALLETS * (INPUT_OMZET_PERCENTAGE / 100) * (INPUT_VOORRAAD_PERCENTAGE / 100)',
-        dependencies: ['INPUT_OMZET_PERCENTAGE', 'INPUT_VOORRAAD_PERCENTAGE'],
+        category: 'BUSINESS',
+        unit: '%',
+        description: 'Revenue as percentage of baseline',
+        formula: '(INPUT_OMZET / PARAM_BASELINE_OMZET) * 100',
+        dependencies: ['INPUT_OMZET'],
         displayOrder: 4,
       },
     }),
+    // OUTPUT 2: Voorraad Percentage (derived)
+    prisma.variable.create({
+      data: {
+        organizationId: org.id,
+        name: 'OUTPUT_VOORRAAD_PERCENTAGE',
+        displayName: 'Voorraad %',
+        variableType: 'OUTPUT',
+        category: 'VOORRAAD',
+        unit: '%',
+        description: 'Inventory as percentage of baseline',
+        formula: '(INPUT_VOORRAAD / PARAM_BASELINE_VOORRAAD) * 100',
+        dependencies: ['INPUT_VOORRAAD'],
+        displayOrder: 5,
+      },
+    }),
+    // OUTPUT 3: SKU Growth (derived)
+    prisma.variable.create({
+      data: {
+        organizationId: org.id,
+        name: 'OUTPUT_SKU_GROWTH',
+        displayName: 'SKU Groei %',
+        variableType: 'OUTPUT',
+        category: 'BUSINESS',
+        unit: '%',
+        description: 'SKU count as percentage of baseline',
+        formula: '(INPUT_AANTAL_SKUS / PARAM_BASELINE_SKUS) * 100',
+        dependencies: ['INPUT_AANTAL_SKUS'],
+        displayOrder: 6,
+      },
+    }),
   ])
-  console.log('✅ Created 4 variables (3 INPUT + 1 OUTPUT)')
+  console.log('✅ Created 6 variables (3 INPUT + 3 OUTPUT)')
 
   // Get variable IDs
   const allVars = await prisma.variable.findMany({
@@ -124,20 +181,7 @@ async function main() {
   })
   const varMap = new Map(allVars.map((v) => [v.name, v.id]))
 
-  // 5. Create 70 SKU Effect Curves (6500-10000 in steps of 50)
-  const skuCurves = []
-  for (let sku = 6500; sku <= 10000; sku += 50) {
-    skuCurves.push({
-      organizationId: org.id,
-      skuRangeStart: sku,
-      effectMultiplier: 1.0, // Linear by default
-      description: `SKU range ${sku}-${sku + 49}`,
-    })
-  }
-  await prisma.skuEffectCurve.createMany({ data: skuCurves })
-  console.log('✅ Created 70 SKU effect curves (6500-10000)')
-
-  // 6. Create 3 Scenarios
+  // 5. Create 3 Scenarios
   const baselineScenario = await prisma.scenario.create({
     data: {
       organizationId: org.id,
@@ -145,6 +189,8 @@ async function main() {
       description: 'Benchmark year with flat projections',
       isBaseline: true,
       timePeriodType: 'YEARLY',
+      startDate: new Date('2025-01-01'),
+      endDate: new Date('2031-12-31'),
     },
   })
 
@@ -152,9 +198,11 @@ async function main() {
     data: {
       organizationId: org.id,
       name: 'Optimalisatie A',
-      description: 'Growth scenario: +5% omzet, -5% voorraad, +500 SKUs',
+      description: 'Growth scenario: +5% revenue/year, -5% inventory/year, +500 SKUs/year',
       isBaseline: false,
       timePeriodType: 'YEARLY',
+      startDate: new Date('2025-01-01'),
+      endDate: new Date('2031-12-31'),
     },
   })
 
@@ -162,16 +210,23 @@ async function main() {
     data: {
       organizationId: org.id,
       name: 'Groei B',
-      description: 'Aggressive growth: +10% omzet, +10% voorraad, +1500 SKUs',
+      description: 'Aggressive growth: +10% revenue/year, +10% inventory/year, +1500 SKUs/year',
       isBaseline: false,
       timePeriodType: 'YEARLY',
+      startDate: new Date('2025-01-01'),
+      endDate: new Date('2031-12-31'),
     },
   })
 
   console.log('✅ Created 3 scenarios')
 
-  // 7. Create VariableValues for all scenarios (7 years each: 2025-2031)
+  // 6. Create VariableValues for all scenarios (7 years each: 2025-2031)
   const years = [2025, 2026, 2027, 2028, 2029, 2030, 2031]
+
+  // Baseline values
+  const BASELINE_OMZET = 1000000 // €1M
+  const BASELINE_VOORRAAD = 5000 // 5000 pallets
+  const BASELINE_SKUS = 6500 // 6500 SKUs
 
   // Helper to create values for a scenario
   const createValues = async (
@@ -185,21 +240,24 @@ async function main() {
       values.push(
         {
           scenarioId,
-          variableId: varMap.get('INPUT_OMZET_PERCENTAGE')!,
+          variableId: varMap.get('INPUT_OMZET')!,
           value: omzet,
           periodStart: new Date(`${year}-01-01`),
+          periodEnd: new Date(`${year}-12-31`),
         },
         {
           scenarioId,
-          variableId: varMap.get('INPUT_VOORRAAD_PERCENTAGE')!,
+          variableId: varMap.get('INPUT_VOORRAAD')!,
           value: voorraad,
           periodStart: new Date(`${year}-01-01`),
+          periodEnd: new Date(`${year}-12-31`),
         },
         {
           scenarioId,
           variableId: varMap.get('INPUT_AANTAL_SKUS')!,
           value: skus,
           periodStart: new Date(`${year}-01-01`),
+          periodEnd: new Date(`${year}-12-31`),
         }
       )
     }
@@ -207,30 +265,30 @@ async function main() {
     console.log(`✅ Created ${values.length} variable values for ${scenarioName}`)
   }
 
-  // Baseline: Flat projections (100%, 100%, 6500 SKUs)
-  await createValues(baselineScenario.id, 'Baseline', () => ({
-    omzet: 100,
-    voorraad: 100,
-    skus: 6500,
+  // Baseline: Flat projections (no growth)
+  await createValues(baselineScenario.id, 'Baseline 2025', () => ({
+    omzet: BASELINE_OMZET,
+    voorraad: BASELINE_VOORRAAD,
+    skus: BASELINE_SKUS,
   }))
 
-  // Optimalisatie A: +5% omzet, -5% voorraad, +500 SKUs per year after 2025
+  // Optimalisatie A: +5% revenue, -5% inventory, +500 SKUs per year
   await createValues(scenarioA.id, 'Optimalisatie A', (year) => {
     const yearsFromBaseline = year - 2025
     return {
-      omzet: 100 + yearsFromBaseline * 5,
-      voorraad: 100 - yearsFromBaseline * 5,
-      skus: 6500 + yearsFromBaseline * 500,
+      omzet: Math.round(BASELINE_OMZET * (1 + 0.05 * yearsFromBaseline)),
+      voorraad: Math.round(BASELINE_VOORRAAD * (1 - 0.05 * yearsFromBaseline)),
+      skus: BASELINE_SKUS + yearsFromBaseline * 500,
     }
   })
 
-  // Groei B: +10% omzet, +10% voorraad, +1500 SKUs per year after 2025
+  // Groei B: +10% revenue, +10% inventory, +1500 SKUs per year
   await createValues(scenarioB.id, 'Groei B', (year) => {
     const yearsFromBaseline = year - 2025
     return {
-      omzet: 100 + yearsFromBaseline * 10,
-      voorraad: 100 + yearsFromBaseline * 10,
-      skus: 6500 + yearsFromBaseline * 1500,
+      omzet: Math.round(BASELINE_OMZET * (1 + 0.1 * yearsFromBaseline)),
+      voorraad: Math.round(BASELINE_VOORRAAD * (1 + 0.1 * yearsFromBaseline)),
+      skus: BASELINE_SKUS + yearsFromBaseline * 1500,
     }
   })
 
@@ -239,19 +297,23 @@ async function main() {
   console.log('📊 Summary:')
   console.log('  - 1 Organization: RetailCo')
   console.log('  - 1 User: admin@retailco.com')
-  console.log('  - 1 Parameter: PARAM_BENCHMARK_PALLETS = 4975')
-  console.log('  - 4 Variables:')
-  console.log('    • INPUT_OMZET_PERCENTAGE (%, benchmark = 100)')
-  console.log('    • INPUT_VOORRAAD_PERCENTAGE (%, benchmark = 100)')
-  console.log('    • INPUT_AANTAL_SKUS (aantal, benchmark = 6500)')
-  console.log('    • OUTPUT_PALLETS (calculated)')
-  console.log('  - 70 SKU Effect Curves (6500-10000, all at 1.0 multiplier)')
-  console.log('  - 3 Scenarios × 7 years = 63 VariableValue records:')
-  console.log('    1. Baseline 2025: Flat (100%, 100%, 6500 SKUs)')
-  console.log('    2. Optimalisatie A: Growth (+5%/yr omzet, -5%/yr voorraad, +500 SKUs/yr)')
-  console.log('    3. Groei B: Aggressive (+10%/yr omzet, +10%/yr voorraad, +1500 SKUs/yr)')
+  console.log('  - 3 Baseline Parameters:')
+  console.log(`    • PARAM_BASELINE_OMZET = €${BASELINE_OMZET.toLocaleString()}`)
+  console.log(`    • PARAM_BASELINE_VOORRAAD = ${BASELINE_VOORRAAD} pallets`)
+  console.log(`    • PARAM_BASELINE_SKUS = ${BASELINE_SKUS} SKUs`)
+  console.log('  - 6 Variables:')
+  console.log('    • INPUT_OMZET (EUR, absolute)')
+  console.log('    • INPUT_VOORRAAD (pallets, absolute)')
+  console.log('    • INPUT_AANTAL_SKUS (aantal, absolute)')
+  console.log('    • OUTPUT_OMZET_PERCENTAGE (calculated)')
+  console.log('    • OUTPUT_VOORRAAD_PERCENTAGE (calculated)')
+  console.log('    • OUTPUT_SKU_GROWTH (calculated)')
+  console.log('  - 3 Scenarios × 7 years × 3 inputs = 63 VariableValue records:')
+  console.log('    1. Baseline 2025: Flat (€1M, 5000 pallets, 6500 SKUs)')
+  console.log('    2. Optimalisatie A: Efficiency (+5% revenue/yr, -5% inventory/yr)')
+  console.log('    3. Groei B: Aggressive growth (+10% revenue/yr, +10% inventory/yr)')
   console.log('')
-  console.log('Next: Build UI components for scenario value input')
+  console.log('✅ Ready to test! Run calculations to see OUTPUT percentages.')
 }
 
 main()

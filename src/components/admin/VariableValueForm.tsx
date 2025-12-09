@@ -9,22 +9,21 @@ import { Button } from '@/components/ui/button'
 import {
   Form,
   FormControl,
-  FormDescription,
   FormField,
   FormItem,
-  FormLabel,
   FormMessage,
 } from '@/components/ui/form'
 import { Input } from '@/components/ui/input'
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select'
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table'
 import { toast } from 'sonner'
-import { Loader2, ChevronLeft, ChevronRight, Save, CheckCircle } from 'lucide-react'
+import { Loader2, Save } from 'lucide-react'
 import type { Variable, VariableValue } from '@prisma/client'
 import type { Period } from '@/lib/utils'
 
@@ -45,10 +44,7 @@ export default function VariableValueForm({
   periods,
   onSuccess,
 }: VariableValueFormProps) {
-  const [selectedPeriodIndex, setSelectedPeriodIndex] = useState(0)
-  const selectedPeriod = periods[selectedPeriodIndex] ?? periods[0]
-
-  // Create form schema dynamically based on variables
+  // Create form schema dynamically: { variableId_periodValue: number }
   const formSchema = z.object({
     values: z.record(z.string(), z.number()),
   })
@@ -63,7 +59,7 @@ export default function VariableValueForm({
   // Mutation to save values
   const setValueMutation = api.variable.setValue.useMutation({
     onSuccess: () => {
-      toast.success(`Successfully saved values for ${selectedPeriod?.label ?? 'period'}`)
+      toast.success('Successfully saved all values')
       onSuccess?.()
     },
     onError: (error) => {
@@ -71,211 +67,152 @@ export default function VariableValueForm({
     },
   })
 
-  // Load values for selected period
+  // Load all values for all periods
   useEffect(() => {
-    if (!selectedPeriod) return
-
-    const valuesForPeriod: Record<string, number> = {}
+    const valuesMap: Record<string, number> = {}
 
     variables.forEach((variable) => {
-      const existingValue = existingValues.find(
-        (v) =>
-          v.variableId === variable.id &&
-          v.periodStart &&
-          new Date(v.periodStart).getTime() === selectedPeriod.periodStart.getTime()
-      )
-      const value = existingValue?.value
-      valuesForPeriod[variable.id] = typeof value === 'number' ? value : 0
-    })
-
-    form.reset({ values: valuesForPeriod })
-  }, [selectedPeriodIndex, selectedPeriod, variables, existingValues, form])
-
-  const onSubmit = async (data: z.infer<typeof formSchema>) => {
-    if (!selectedPeriod) return
-
-    // Save all values for this period
-    const promises = Object.entries(data.values).map(([variableId, value]) => {
-      return setValueMutation.mutateAsync({
-        organizationId,
-        scenarioId,
-        variableId,
-        value,
-        periodStart: selectedPeriod.periodStart,
+      periods.forEach((period) => {
+        const key = `${variable.id}_${period.value}`
+        const existingValue = existingValues.find(
+          (v) =>
+            v.variableId === variable.id &&
+            v.periodStart &&
+            new Date(v.periodStart).getTime() === period.periodStart.getTime()
+        )
+        const value = existingValue?.value
+        valuesMap[key] = typeof value === 'number' ? value : 0
       })
     })
 
-    await Promise.all(promises)
-  }
+    form.reset({ values: valuesMap })
+  }, [variables, periods, existingValues, form])
 
-  const goToPreviousPeriod = () => {
-    if (selectedPeriodIndex > 0) {
-      setSelectedPeriodIndex(selectedPeriodIndex - 1)
+  const onSubmit = async (data: z.infer<typeof formSchema>) => {
+    // Parse the keys back into variableId + periodValue pairs
+    const promises: Promise<unknown>[] = []
+
+    Object.entries(data.values).forEach(([key, value]) => {
+      const [variableId, periodValue] = key.split('_')
+      const period = periods.find((p) => p.value === periodValue)
+
+      if (period && variableId) {
+        promises.push(
+          setValueMutation.mutateAsync({
+            organizationId,
+            scenarioId,
+            variableId,
+            value,
+            periodStart: period.periodStart,
+          })
+        )
+      }
+    })
+
+    try {
+      await Promise.all(promises)
+    } catch (error) {
+      // Error already handled by mutation onError
+      console.error('Save error:', error)
     }
   }
 
-  const goToNextPeriod = () => {
-    if (selectedPeriodIndex < periods.length - 1) {
-      setSelectedPeriodIndex(selectedPeriodIndex + 1)
-    }
-  }
-
-  // Calculate completion status
-  const completedPeriods = periods.filter((period) => {
-    return variables.every((variable) =>
-      existingValues.some(
-        (v) =>
-          v.variableId === variable.id &&
-          v.periodStart &&
-          new Date(v.periodStart).getTime() === period.periodStart.getTime()
-      )
+  if (variables.length === 0) {
+    return (
+      <div className="text-center text-muted-foreground">No INPUT variables configured</div>
     )
-  })
+  }
 
-  if (!selectedPeriod) {
+  if (periods.length === 0) {
     return <div className="text-center text-muted-foreground">No periods configured</div>
   }
 
   return (
-    <div className="space-y-6">
-      {/* Period Selector */}
-      <div className="flex items-center justify-between rounded-lg border bg-muted/50 p-4">
-        <div className="flex items-center gap-4">
-          <div>
-            <div className="text-sm font-medium text-muted-foreground">Selected Period</div>
-            <Select
-              value={selectedPeriod.value}
-              onValueChange={(value) => {
-                const index = periods.findIndex((p) => p.value === value)
-                if (index !== -1) setSelectedPeriodIndex(index)
-              }}
-            >
-              <SelectTrigger className="mt-1 w-[180px]">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {periods.map((period, idx) => (
-                  <SelectItem key={period.value} value={period.value}>
-                    {period.label} {idx === 0 && '(Benchmark)'}
-                  </SelectItem>
+    <Form {...form}>
+      <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+        {/* Table showing all periods in one view */}
+        <div className="rounded-md border">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead className="w-[200px]">Variable</TableHead>
+                {periods.map((period) => (
+                  <TableHead key={period.value} className="text-center">
+                    <div className="font-semibold">{period.label}</div>
+                  </TableHead>
                 ))}
-              </SelectContent>
-            </Select>
-          </div>
-
-          <div className="flex gap-2">
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              onClick={goToPreviousPeriod}
-              disabled={selectedPeriodIndex === 0}
-            >
-              <ChevronLeft className="h-4 w-4" />
-              Previous
-            </Button>
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              onClick={goToNextPeriod}
-              disabled={selectedPeriodIndex === periods.length - 1}
-            >
-              Next
-              <ChevronRight className="h-4 w-4" />
-            </Button>
-          </div>
-        </div>
-
-        <div className="text-right">
-          <div className="text-sm font-medium text-muted-foreground">Progress</div>
-          <div className="mt-1 flex items-center gap-2">
-            <div className="text-lg font-semibold">
-              {completedPeriods.length}/{periods.length} periods
-            </div>
-            {completedPeriods.length === periods.length && (
-              <CheckCircle className="h-5 w-5 text-green-600" />
-            )}
-          </div>
-        </div>
-      </div>
-
-      {/* Variable Input Form */}
-      <Form {...form}>
-        <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
-          <div className="grid gap-6 md:grid-cols-2">
-            {variables
-              .sort((a, b) => a.displayOrder - b.displayOrder)
-              .map((variable) => (
-                <FormField
-                  key={variable.id}
-                  control={form.control}
-                  name={`values.${variable.id}`}
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>
-                        {variable.displayName}
-                        {variable.unit && (
-                          <span className="ml-2 text-xs text-muted-foreground">
-                            ({variable.unit})
-                          </span>
-                        )}
-                      </FormLabel>
-                      <FormControl>
-                        <Input
-                          type="number"
-                          step={variable.unit === '%' ? '1' : 'any'}
-                          placeholder={`Enter ${variable.displayName.toLowerCase()}`}
-                          value={field.value || 0}
-                          onChange={(e) => {
-                            const val = e.target.valueAsNumber
-                            field.onChange(isNaN(val) ? 0 : val)
-                          }}
-                          onBlur={field.onBlur}
-                          name={field.name}
-                          ref={field.ref}
-                          disabled={field.disabled}
-                        />
-                      </FormControl>
-                      {variable.description && (
-                        <FormDescription>{variable.description}</FormDescription>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {variables
+                .sort((a, b) => a.displayOrder - b.displayOrder)
+                .map((variable) => (
+                  <TableRow key={variable.id}>
+                    <TableCell className="font-medium">
+                      <div>{variable.displayName}</div>
+                      {variable.unit && (
+                        <div className="text-xs text-muted-foreground">({variable.unit})</div>
                       )}
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-              ))}
+                    </TableCell>
+                    {periods.map((period) => {
+                      const fieldName = `values.${variable.id}_${period.value}`
+                      return (
+                        <TableCell key={period.value} className="p-2">
+                          <FormField
+                            control={form.control}
+                            name={fieldName}
+                            render={({ field }) => (
+                              <FormItem>
+                                <FormControl>
+                                  <Input
+                                    type="number"
+                                    step={variable.unit === '%' ? '1' : 'any'}
+                                    className="text-center"
+                                    value={field.value || 0}
+                                    onChange={(e) => {
+                                      const val = e.target.valueAsNumber
+                                      field.onChange(isNaN(val) ? 0 : val)
+                                    }}
+                                    onBlur={field.onBlur}
+                                    name={field.name}
+                                    ref={field.ref}
+                                    disabled={field.disabled}
+                                  />
+                                </FormControl>
+                                <FormMessage />
+                              </FormItem>
+                            )}
+                          />
+                        </TableCell>
+                      )
+                    })}
+                  </TableRow>
+                ))}
+            </TableBody>
+          </Table>
+        </div>
+
+        {/* Save button */}
+        <div className="flex items-center justify-between border-t pt-6">
+          <div className="text-sm text-muted-foreground">
+            {periods.length} periods × {variables.length} variables = {periods.length * variables.length} values
           </div>
 
-          <div className="flex items-center justify-between border-t pt-6">
-            <div className="text-sm text-muted-foreground">
-              {selectedPeriodIndex === 0 ? (
-                <span className="font-medium text-blue-600">
-                  Benchmark period - used as baseline for comparisons
-                </span>
-              ) : (
-                <span>
-                  {selectedPeriod.label} - Period {selectedPeriodIndex + 1} of {periods.length}
-                </span>
-              )}
-            </div>
-
-            <Button type="submit" disabled={setValueMutation.isPending}>
-              {setValueMutation.isPending ? (
-                <>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Saving...
-                </>
-              ) : (
-                <>
-                  <Save className="mr-2 h-4 w-4" />
-                  Save {selectedPeriod.label} Values
-                </>
-              )}
-            </Button>
-          </div>
-        </form>
-      </Form>
-    </div>
+          <Button type="submit" size="lg" disabled={setValueMutation.isPending}>
+            {setValueMutation.isPending ? (
+              <>
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                Saving all values...
+              </>
+            ) : (
+              <>
+                <Save className="mr-2 h-4 w-4" />
+                Save All Values
+              </>
+            )}
+          </Button>
+        </div>
+      </form>
+    </Form>
   )
 }
