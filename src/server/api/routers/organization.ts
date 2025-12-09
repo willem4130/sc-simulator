@@ -2,13 +2,14 @@
  * Organization router - Multi-tenant organization management
  */
 import { z } from 'zod'
-import { createTRPCRouter, protectedProcedure } from '@/server/api/trpc'
+import { createTRPCRouter, protectedProcedure, publicProcedure } from '@/server/api/trpc'
 
 export const organizationRouter = createTRPCRouter({
   /**
    * Get first organization (for development)
+   * TODO: Remove publicProcedure once authentication is implemented
    */
-  getFirst: protectedProcedure.query(async ({ ctx }) => {
+  getFirst: publicProcedure.query(async ({ ctx }) => {
     return ctx.db.organisatie.findFirst()
   }),
 
