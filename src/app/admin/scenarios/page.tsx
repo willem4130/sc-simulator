@@ -1,6 +1,7 @@
 "use client"
 
 import { useState } from "react"
+import { useRouter } from "next/navigation"
 import { ScenarioList, type Scenario } from "@/components/admin/ScenarioList"
 import { ScenarioForm, type ScenarioFormValues } from "@/components/admin/ScenarioForm"
 import {
@@ -24,6 +25,7 @@ import { api } from "@/trpc/react"
 import { toast } from "sonner"
 
 export default function ScenariosPage() {
+  const router = useRouter()
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false)
   const [editingScenario, setEditingScenario] = useState<Scenario | null>(null)
   const [deletingScenarioId, setDeletingScenarioId] = useState<string | null>(null)
@@ -104,6 +106,10 @@ export default function ScenariosPage() {
     }
   }
 
+  const handleEditValues = (id: string) => {
+    router.push(`/admin/scenarios/${id}`)
+  }
+
   const handleDelete = (id: string) => {
     setDeletingScenarioId(id)
   }
@@ -169,6 +175,7 @@ export default function ScenariosPage() {
         scenarios={scenarios}
         onCreateNew={handleCreateNew}
         onEdit={handleEdit}
+        onEditValues={handleEditValues}
         onDelete={handleDelete}
         onCompare={handleCompare}
       />

@@ -11,7 +11,7 @@ import {
   TableRow,
 } from "@/components/ui/table"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { FileText, Plus, TrendingDown, TrendingUp, Pencil, Trash2 } from "lucide-react"
+import { FileText, Plus, TrendingDown, TrendingUp, Pencil, Trash2, Settings } from "lucide-react"
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
 
 export interface Scenario {
@@ -32,11 +32,12 @@ interface ScenarioListProps {
   scenarios: Scenario[]
   onCreateNew: () => void
   onEdit: (id: string) => void
+  onEditValues: (id: string) => void
   onDelete: (id: string) => void
   onCompare: (ids: string[]) => void
 }
 
-export function ScenarioList({ scenarios, onCreateNew, onEdit, onDelete, onCompare }: ScenarioListProps) {
+export function ScenarioList({ scenarios, onCreateNew, onEdit, onEditValues, onDelete, onCompare }: ScenarioListProps) {
   const formatCurrency = (value: number) => {
     return new Intl.NumberFormat('en-US', {
       style: 'currency',
@@ -145,13 +146,38 @@ export function ScenarioList({ scenarios, onCreateNew, onEdit, onDelete, onCompa
                   </TableCell>
                   <TableCell className="text-right">
                     <div className="flex justify-end gap-2">
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => onEdit(scenario.id)}
-                      >
-                        <Pencil className="h-4 w-4" />
-                      </Button>
+                      <TooltipProvider>
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => onEditValues(scenario.id)}
+                            >
+                              <Settings className="h-4 w-4" />
+                            </Button>
+                          </TooltipTrigger>
+                          <TooltipContent>
+                            <p>Edit variable values</p>
+                          </TooltipContent>
+                        </Tooltip>
+                      </TooltipProvider>
+                      <TooltipProvider>
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => onEdit(scenario.id)}
+                            >
+                              <Pencil className="h-4 w-4" />
+                            </Button>
+                          </TooltipTrigger>
+                          <TooltipContent>
+                            <p>Edit scenario details</p>
+                          </TooltipContent>
+                        </Tooltip>
+                      </TooltipProvider>
                       <TooltipProvider>
                         <Tooltip>
                           <TooltipTrigger asChild>
