@@ -155,12 +155,12 @@ export default function VariableValueForm({
                       )}
                     </TableCell>
                     {periods.map((period) => {
-                      const fieldName = `values.${variable.id}_${period.value}`
+                      const fieldName = `values.${variable.id}_${period.value}` as const
                       return (
                         <TableCell key={period.value} className="p-2">
                           <FormField
                             control={form.control}
-                            name={fieldName}
+                            name={fieldName as 'values'}
                             render={({ field }) => (
                               <FormItem>
                                 <FormControl>
@@ -168,7 +168,7 @@ export default function VariableValueForm({
                                     type="number"
                                     step={variable.unit === '%' ? '1' : 'any'}
                                     className="text-center"
-                                    value={field.value || 0}
+                                    value={(field.value as unknown as number) || 0}
                                     onChange={(e) => {
                                       const val = e.target.valueAsNumber
                                       field.onChange(isNaN(val) ? 0 : val)

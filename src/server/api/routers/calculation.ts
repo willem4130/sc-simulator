@@ -71,8 +71,9 @@ export const calculationRouter = createTRPCRouter({
 
   /**
    * Calculate or recalculate a scenario
+   * TODO: Change back to organizationProcedure once authentication is implemented
    */
-  calculate: organizationProcedure
+  calculate: publicProcedure
     .input(
       z.object({
         organizationId: z.string(),
