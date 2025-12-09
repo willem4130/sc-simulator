@@ -267,6 +267,12 @@ export default function ScenarioDetailPage() {
           <CalculationResults
             calculations={allCalculations}
             outputVariables={outputVariables}
+            inputVariables={inputVariables}
+            inputValues={existingValues.map((v) => ({
+              variableId: v.variableId,
+              periodStart: v.periodStart ?? new Date(),
+              value: v.value,
+            }))}
             parameters={parameters}
             periods={periods}
             isBaseline={scenario.isBaseline}
