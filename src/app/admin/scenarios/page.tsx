@@ -34,6 +34,13 @@ export default function ScenariosPage() {
   const { data: org } = api.organization.getFirst.useQuery()
   const organizationId = org?.id ?? ''
 
+  // Get first project (temporary - will be replaced with proper project selection)
+  const { data: projects = [] } = api.project.list.useQuery(
+    { organizationId },
+    { enabled: !!organizationId }
+  )
+  const projectId = projects[0]?.id ?? ''
+
   // Query scenarios from database
   const { data: dbScenarios = [], refetch } = api.scenario.list.useQuery(
     { organizationId },
@@ -142,6 +149,7 @@ export default function ScenariosPage() {
       // Create new scenario
       createMutation.mutate({
         organizationId,
+        projectId,
         name: values.name,
         description: values.description,
         timePeriodType: values.timePeriodType === 'SINGLE' ? 'SINGLE_POINT' : values.timePeriodType,
