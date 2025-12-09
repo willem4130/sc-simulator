@@ -2,13 +2,14 @@
  * Scenario router - What-if scenario management
  */
 import { z } from 'zod'
-import { createTRPCRouter, organizationProcedure } from '@/server/api/trpc'
+import { createTRPCRouter, organizationProcedure, publicProcedure } from '@/server/api/trpc'
 
 export const scenarioRouter = createTRPCRouter({
   /**
    * List all scenarios for an organization
+   * TODO: Change back to organizationProcedure once authentication is implemented
    */
-  list: organizationProcedure
+  list: publicProcedure
     .input(z.object({ organizationId: z.string() }))
     .query(async ({ ctx, input }) => {
       return ctx.db.scenario.findMany({
