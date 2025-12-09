@@ -26,25 +26,27 @@ import {
 import { toast } from 'sonner'
 import { Loader2, ChevronLeft, ChevronRight, Save, CheckCircle } from 'lucide-react'
 import type { Variable, VariableValue } from '@prisma/client'
+import type { Period } from '@/lib/utils'
 
 interface VariableValueFormProps {
   scenarioId: string
   organizationId: string
   variables: Variable[]
   existingValues: (VariableValue & { variable: Variable })[]
+  periods: Period[]
   onSuccess?: () => void
 }
-
-const YEARS = [2025, 2026, 2027, 2028, 2029, 2030, 2031]
 
 export default function VariableValueForm({
   scenarioId,
   organizationId,
   variables,
   existingValues,
+  periods,
   onSuccess,
 }: VariableValueFormProps) {
-  const [selectedYear, setSelectedYear] = useState(2025)
+  const [selectedPeriodIndex, setSelectedPeriodIndex] = useState(0)
+  const selectedPeriod = periods[selectedPeriodIndex] ?? periods[0]
 
   // Create form schema dynamically based on variables
   const formSchema = z.object({
@@ -61,7 +63,7 @@ export default function VariableValueForm({
   // Mutation to save values
   const setValueMutation = api.variable.setValue.useMutation({
     onSuccess: () => {
-      toast.success(`Successfully saved values for ${selectedYear}`)
+      toast.success(`Successfully saved values for ${selectedPeriod?.label ?? 'period'}`)
       onSuccess?.()
     },
     onError: (error) => {
@@ -69,86 +71,92 @@ export default function VariableValueForm({
     },
   })
 
-  // Load values for selected year
+  // Load values for selected period
   useEffect(() => {
-    const valuesForYear: Record<string, number> = {}
+    if (!selectedPeriod) return
+
+    const valuesForPeriod: Record<string, number> = {}
 
     variables.forEach((variable) => {
       const existingValue = existingValues.find(
         (v) =>
           v.variableId === variable.id &&
           v.periodStart &&
-          new Date(v.periodStart).getFullYear() === selectedYear
+          new Date(v.periodStart).getTime() === selectedPeriod.periodStart.getTime()
       )
       const value = existingValue?.value
-      valuesForYear[variable.id] = typeof value === 'number' ? value : 0
+      valuesForPeriod[variable.id] = typeof value === 'number' ? value : 0
     })
 
-    form.reset({ values: valuesForYear })
-  }, [selectedYear, variables, existingValues, form])
+    form.reset({ values: valuesForPeriod })
+  }, [selectedPeriodIndex, selectedPeriod, variables, existingValues, form])
 
   const onSubmit = async (data: z.infer<typeof formSchema>) => {
-    const periodStart = new Date(`${selectedYear}-01-01`)
+    if (!selectedPeriod) return
 
-    // Save all values for this year
+    // Save all values for this period
     const promises = Object.entries(data.values).map(([variableId, value]) => {
       return setValueMutation.mutateAsync({
         organizationId,
         scenarioId,
         variableId,
         value,
-        periodStart,
+        periodStart: selectedPeriod.periodStart,
       })
     })
 
     await Promise.all(promises)
   }
 
-  const goToPreviousYear = () => {
-    const currentIndex = YEARS.indexOf(selectedYear)
-    if (currentIndex > 0) {
-      setSelectedYear(YEARS[currentIndex - 1]!)
+  const goToPreviousPeriod = () => {
+    if (selectedPeriodIndex > 0) {
+      setSelectedPeriodIndex(selectedPeriodIndex - 1)
     }
   }
 
-  const goToNextYear = () => {
-    const currentIndex = YEARS.indexOf(selectedYear)
-    if (currentIndex < YEARS.length - 1) {
-      setSelectedYear(YEARS[currentIndex + 1]!)
+  const goToNextPeriod = () => {
+    if (selectedPeriodIndex < periods.length - 1) {
+      setSelectedPeriodIndex(selectedPeriodIndex + 1)
     }
   }
 
   // Calculate completion status
-  const completedYears = YEARS.filter((year) => {
-    const yearStart = new Date(`${year}-01-01`)
+  const completedPeriods = periods.filter((period) => {
     return variables.every((variable) =>
       existingValues.some(
         (v) =>
           v.variableId === variable.id &&
           v.periodStart &&
-          new Date(v.periodStart).getFullYear() === year
+          new Date(v.periodStart).getTime() === period.periodStart.getTime()
       )
     )
   })
 
+  if (!selectedPeriod) {
+    return <div className="text-center text-muted-foreground">No periods configured</div>
+  }
+
   return (
     <div className="space-y-6">
-      {/* Year Selector */}
+      {/* Period Selector */}
       <div className="flex items-center justify-between rounded-lg border bg-muted/50 p-4">
         <div className="flex items-center gap-4">
           <div>
-            <div className="text-sm font-medium text-muted-foreground">Selected Year</div>
+            <div className="text-sm font-medium text-muted-foreground">Selected Period</div>
             <Select
-              value={selectedYear.toString()}
-              onValueChange={(value) => setSelectedYear(parseInt(value))}
+              value={selectedPeriod.value}
+              onValueChange={(value) => {
+                const index = periods.findIndex((p) => p.value === value)
+                if (index !== -1) setSelectedPeriodIndex(index)
+              }}
             >
               <SelectTrigger className="mt-1 w-[180px]">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                {YEARS.map((year) => (
-                  <SelectItem key={year} value={year.toString()}>
-                    {year} {year === 2025 && '(Benchmark)'}
+                {periods.map((period, idx) => (
+                  <SelectItem key={period.value} value={period.value}>
+                    {period.label} {idx === 0 && '(Benchmark)'}
                   </SelectItem>
                 ))}
               </SelectContent>
@@ -160,8 +168,8 @@ export default function VariableValueForm({
               type="button"
               variant="outline"
               size="sm"
-              onClick={goToPreviousYear}
-              disabled={selectedYear === YEARS[0]}
+              onClick={goToPreviousPeriod}
+              disabled={selectedPeriodIndex === 0}
             >
               <ChevronLeft className="h-4 w-4" />
               Previous
@@ -170,8 +178,8 @@ export default function VariableValueForm({
               type="button"
               variant="outline"
               size="sm"
-              onClick={goToNextYear}
-              disabled={selectedYear === YEARS[YEARS.length - 1]}
+              onClick={goToNextPeriod}
+              disabled={selectedPeriodIndex === periods.length - 1}
             >
               Next
               <ChevronRight className="h-4 w-4" />
@@ -183,9 +191,9 @@ export default function VariableValueForm({
           <div className="text-sm font-medium text-muted-foreground">Progress</div>
           <div className="mt-1 flex items-center gap-2">
             <div className="text-lg font-semibold">
-              {completedYears.length}/{YEARS.length} years
+              {completedPeriods.length}/{periods.length} periods
             </div>
-            {completedYears.length === YEARS.length && (
+            {completedPeriods.length === periods.length && (
               <CheckCircle className="h-5 w-5 text-green-600" />
             )}
           </div>
@@ -241,13 +249,13 @@ export default function VariableValueForm({
 
           <div className="flex items-center justify-between border-t pt-6">
             <div className="text-sm text-muted-foreground">
-              {selectedYear === 2025 ? (
+              {selectedPeriodIndex === 0 ? (
                 <span className="font-medium text-blue-600">
-                  Benchmark year - used as baseline for comparisons
+                  Benchmark period - used as baseline for comparisons
                 </span>
               ) : (
                 <span>
-                  Year {selectedYear} - {selectedYear - 2025} years from benchmark
+                  {selectedPeriod.label} - Period {selectedPeriodIndex + 1} of {periods.length}
                 </span>
               )}
             </div>
@@ -261,7 +269,7 @@ export default function VariableValueForm({
               ) : (
                 <>
                   <Save className="mr-2 h-4 w-4" />
-                  Save {selectedYear} Values
+                  Save {selectedPeriod.label} Values
                 </>
               )}
             </Button>

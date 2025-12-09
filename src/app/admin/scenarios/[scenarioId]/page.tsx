@@ -2,11 +2,16 @@
 
 import { useParams, useRouter } from 'next/navigation'
 import Link from 'next/link'
+import { useMemo, useState } from 'react'
 import { api } from '@/trpc/react'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
-import { ArrowLeft, Calendar } from 'lucide-react'
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import { ArrowLeft, Calendar, FileInput, BarChart3, Calculator, Loader2 } from 'lucide-react'
+import { toast } from 'sonner'
 import VariableValueForm from '@/components/admin/VariableValueForm'
+import CalculationResults from '@/components/admin/CalculationResults'
+import { generatePeriods, getTimePeriodLabel } from '@/lib/utils'
 
 export default function ScenarioDetailPage() {
   const params = useParams()
@@ -30,12 +35,74 @@ export default function ScenarioDetailPage() {
   )
 
   const inputVariables = variables.filter((v) => v.variableType === 'INPUT')
+  const outputVariables = variables.filter((v) => v.variableType === 'OUTPUT')
 
   // Query existing values for this scenario
   const { data: existingValues = [], refetch: refetchValues } = api.variable.getValues.useQuery(
     { organizationId, scenarioId },
     { enabled: !!organizationId && !!scenarioId }
   )
+
+  // Query all calculations for this scenario
+  const { data: allCalculations = [], refetch: refetchCalculation } = api.calculation.getAll.useQuery(
+    { organizationId, scenarioId },
+    { enabled: !!organizationId && !!scenarioId }
+  )
+
+  // Query parameters
+  const { data: parameters = [] } = api.parameter.list.useQuery(
+    { organizationId },
+    { enabled: !!organizationId }
+  )
+
+  // Generate periods dynamically based on scenario configuration
+  const periods = useMemo(() => {
+    if (!scenario) return []
+    return generatePeriods(
+      scenario.timePeriodType,
+      scenario.startDate,
+      scenario.endDate
+    )
+  }, [scenario])
+
+  // State for active tab
+  const [activeTab, setActiveTab] = useState('input')
+
+  // Mutation to run calculation
+  const calculateMutation = api.calculation.calculate.useMutation({
+    onSuccess: () => {
+      toast.success('Calculations completed successfully!')
+      void refetchCalculation()
+      void refetchValues()
+      // Switch to Results tab to show results
+      setActiveTab('results')
+    },
+    onError: (error) => {
+      toast.error(`Calculation failed: ${error.message}`)
+    },
+  })
+
+  const handleCalculate = async () => {
+    if (!organizationId || !scenarioId) return
+
+    // Calculate for all periods
+    const promises = periods.map((period) =>
+      calculateMutation.mutateAsync({
+        organizationId,
+        scenarioId,
+        periodStart: period.periodStart,
+        periodEnd: period.periodEnd,
+        forceRecalculate: true,
+      })
+    )
+
+    try {
+      await Promise.all(promises)
+    } catch (error) {
+      // Error already handled by mutation onError
+      console.error('Calculation error:', error)
+    }
+  }
 
   if (scenarioLoading || variablesLoading) {
     return (
@@ -104,9 +171,8 @@ export default function ScenarioDetailPage() {
             <CardTitle>Scenario Configuration</CardTitle>
           </div>
           <CardDescription>
-            {scenario.timePeriodType === 'YEARLY'
-              ? 'Multi-year scenario (2025-2031)'
-              : 'Single point in time'}
+            {getTimePeriodLabel(scenario.timePeriodType)}
+            {periods.length > 0 && ` (${periods.length} periods)`}
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -117,7 +183,9 @@ export default function ScenarioDetailPage() {
             </div>
             <div>
               <div className="text-sm font-medium text-muted-foreground">Variables Defined</div>
-              <div className="mt-1 text-lg font-semibold">{inputVariables.length} inputs</div>
+              <div className="mt-1 text-lg font-semibold">
+                {inputVariables.length} inputs, {outputVariables.length} outputs
+              </div>
             </div>
             <div>
               <div className="text-sm font-medium text-muted-foreground">Data Points</div>
@@ -127,27 +195,84 @@ export default function ScenarioDetailPage() {
         </CardContent>
       </Card>
 
-      {/* Variable Values Form */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Variable Values</CardTitle>
-          <CardDescription>
-            Enter values for each year (2025-2031). Use the year selector to navigate between
-            periods.
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <VariableValueForm
-            scenarioId={scenarioId}
-            organizationId={organizationId}
-            variables={inputVariables}
-            existingValues={existingValues}
-            onSuccess={() => {
-              void refetchValues()
-            }}
+      {/* Tabs for Input Values and Results */}
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
+        <div className="flex items-center justify-between">
+          <TabsList className="grid w-full max-w-md grid-cols-2">
+            <TabsTrigger value="input" className="gap-2">
+              <FileInput className="h-4 w-4" />
+              Input Values
+            </TabsTrigger>
+            <TabsTrigger value="results" className="gap-2">
+              <BarChart3 className="h-4 w-4" />
+              Results
+            </TabsTrigger>
+          </TabsList>
+
+          {/* Calculate Button */}
+          {activeTab === 'input' && (
+            <Button
+              onClick={handleCalculate}
+              disabled={calculateMutation.isPending || inputVariables.length === 0}
+              size="lg"
+              className="gap-2"
+            >
+              {calculateMutation.isPending ? (
+                <>
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  Calculating...
+                </>
+              ) : (
+                <>
+                  <Calculator className="h-4 w-4" />
+                  Calculate Results
+                </>
+              )}
+            </Button>
+          )}
+        </div>
+
+        {/* Input Values Tab */}
+        <TabsContent value="input" className="space-y-6">
+          <Card>
+            <CardHeader>
+              <CardTitle>Variable Values</CardTitle>
+              <CardDescription>
+                Enter values for each period. Use the period selector to navigate between time periods.
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              {periods.length > 0 ? (
+                <VariableValueForm
+                  scenarioId={scenarioId}
+                  organizationId={organizationId}
+                  variables={inputVariables}
+                  existingValues={existingValues}
+                  periods={periods}
+                  onSuccess={() => {
+                    void refetchValues()
+                  }}
+                />
+              ) : (
+                <div className="text-center text-muted-foreground">
+                  No periods configured for this scenario
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        {/* Results Tab */}
+        <TabsContent value="results" className="space-y-6">
+          <CalculationResults
+            calculations={allCalculations}
+            outputVariables={outputVariables}
+            parameters={parameters}
+            periods={periods}
+            isBaseline={scenario.isBaseline}
           />
-        </CardContent>
-      </Card>
+        </TabsContent>
+      </Tabs>
     </div>
   )
 }

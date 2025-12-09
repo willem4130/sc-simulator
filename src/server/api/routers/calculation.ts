@@ -31,6 +31,23 @@ export const calculationRouter = createTRPCRouter({
     }),
 
   /**
+   * Get all calculations for a scenario
+   */
+  getAll: organizationProcedure
+    .input(
+      z.object({
+        organizationId: z.string(),
+        scenarioId: z.string(),
+      })
+    )
+    .query(async ({ ctx, input }) => {
+      return ctx.db.calculation.findMany({
+        where: { scenarioId: input.scenarioId },
+        orderBy: { periodStart: 'asc' },
+      })
+    }),
+
+  /**
    * Get calculation by version
    */
   getByVersion: organizationProcedure
