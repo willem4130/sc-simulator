@@ -157,6 +157,24 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
 
       {/* Main Content */}
       <main className="flex-1 pl-64">
+        {/* Deployment Info Banner */}
+        <div className="border-b bg-muted/30 px-6 py-2">
+          <div className="flex items-center justify-between text-xs text-muted-foreground">
+            <div>
+              Build: {process.env.NEXT_PUBLIC_VERCEL_GIT_COMMIT_SHA?.slice(0, 7) || 'local'}
+            </div>
+            <div>
+              Deployed: {process.env.NEXT_PUBLIC_VERCEL_GIT_COMMIT_DATE
+                ? new Date(process.env.NEXT_PUBLIC_VERCEL_GIT_COMMIT_DATE).toLocaleString('en-US', {
+                    month: 'short',
+                    day: 'numeric',
+                    hour: '2-digit',
+                    minute: '2-digit',
+                  })
+                : 'dev mode'}
+            </div>
+          </div>
+        </div>
         <div className="container mx-auto p-6">{children}</div>
       </main>
     </div>
