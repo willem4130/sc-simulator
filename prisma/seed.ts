@@ -19,7 +19,7 @@ async function main() {
   console.log('🌱 Starting seed...')
 
   // 1. Create Organization
-  const org = await prisma.organization.create({
+  const org = await prisma.organisatie.create({
     data: {
       name: 'RetailCo Warehouse',
       slug: 'retailco-warehouse',

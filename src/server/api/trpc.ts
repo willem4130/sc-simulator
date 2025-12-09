@@ -86,7 +86,7 @@ export const organizationProcedure = protectedProcedure.use(async ({ ctx, input,
       organizationId,
     },
     include: {
-      organization: true,
+      organisatie: true,
     },
   })
 

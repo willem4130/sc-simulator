@@ -14,7 +14,7 @@ datasource db {
 // MULTI-TENANT FOUNDATION
 // ==========================================
 
-model Organization {
+model Organisatie {
   id          String  @id @default(cuid())
   name        String
   slug        String  @unique
@@ -27,14 +27,16 @@ model Organization {
   updatedAt DateTime @updatedAt
 
   // Relations
-  users        User[]
-  scenarios    Scenario[]
-  variables    Variable[]
-  parameters   Parameter[]
-  effectCurves EffectCurve[]
-  auditLogs    AuditLog[]
+  users           User[]
+  scenarios       Scenario[]
+  variables       Variable[]
+  parameters      Parameter[]
+  effectCurves    EffectCurve[]
+  auditLogs       AuditLog[]
+  skuEffectCurves SkuEffectCurve[]
 
   @@index([slug])
+  @@map("organizations") // Keep table name for backward compatibility
 }
 
 model User {
@@ -45,7 +47,7 @@ model User {
 
   // Multi-tenant link
   organizationId String
-  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  organisatie    Organisatie @relation(fields: [organizationId], references: [id], onDelete: Cascade)
 
   // NextAuth fields
   emailVerified DateTime?
@@ -122,7 +124,7 @@ model Scenario {
 
   // Multi-tenant link
   organizationId String
-  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  organisatie    Organisatie @relation(fields: [organizationId], references: [id], onDelete: Cascade)
 
   // Scenario configuration
   isBaseline     Boolean        @default(false) // Only one baseline per organization
@@ -166,7 +168,7 @@ model Variable {
 
   // Multi-tenant link
   organizationId String
-  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  organisatie    Organisatie @relation(fields: [organizationId], references: [id], onDelete: Cascade)
 
   // Variable identity
   name        String // Machine name: "INPUT_SALES_DEMAND"
@@ -229,7 +231,7 @@ model EffectCurve {
 
   // Multi-tenant link
   organizationId String
-  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  organisatie    Organisatie @relation(fields: [organizationId], references: [id], onDelete: Cascade)
 
   // Curve configuration (JSON for flexibility)
   parameters Json @db.JsonB
@@ -270,7 +272,7 @@ model Parameter {
 
   // Multi-tenant link
   organizationId String
-  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  organisatie    Organisatie @relation(fields: [organizationId], references: [id], onDelete: Cascade)
 
   // Parameter identity
   name        String // Machine name: "PARAM_LEAD_TIME"
@@ -400,7 +402,7 @@ model AuditLog {
 
   // Multi-tenant link
   organizationId String
-  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  organisatie    Organisatie @relation(fields: [organizationId], references: [id], onDelete: Cascade)
 
   // What was changed
   entityType String // "Scenario", "Variable", "VariableValue", "Parameter"
@@ -421,4 +423,34 @@ model AuditLog {
   @@index([userId])
   @@index([entityType, entityId])
   @@index([createdAt])
+}
+
+// ==========================================
+// SKU EFFECT CURVE - NON-LINEAR SKU IMPACT
+// ==========================================
+
+model SkuEffectCurve {
+  id String @id @default(cuid())
+
+  // Multi-tenant link
+  organizationId String
+  organisatie    Organisatie @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  // SKU range (in steps of 50)
+  skuRangeStart Int // e.g., 6500, 6550, 6600
+
+  // Effect multiplier (1.0 = linear, 0.99 = slight diminishing returns)
+  effectMultiplier Float @default(1.0)
+
+  // Optional: Description for this range
+  description String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Unique: one entry per org + SKU range
+  @@unique([organizationId, skuRangeStart])
+  @@index([organizationId])
+  @@index([skuRangeStart])
+  @@map("sku_effect_curves")
 }

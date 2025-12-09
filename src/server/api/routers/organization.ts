@@ -9,7 +9,7 @@ export const organizationRouter = createTRPCRouter({
    * Get first organization (for development)
    */
   getFirst: protectedProcedure.query(async ({ ctx }) => {
-    return ctx.db.organization.findFirst()
+    return ctx.db.organisatie.findFirst()
   }),
 
   /**
@@ -19,7 +19,7 @@ export const organizationRouter = createTRPCRouter({
     const user = await ctx.db.user.findUnique({
       where: { id: ctx.session.user.id },
       include: {
-        organization: {
+        organisatie: {
           include: {
             _count: {
               select: {
@@ -34,7 +34,7 @@ export const organizationRouter = createTRPCRouter({
       },
     })
 
-    return user?.organization
+    return user?.organisatie
   }),
 
   /**
@@ -63,7 +63,7 @@ export const organizationRouter = createTRPCRouter({
         throw new Error('Only admins can update organization settings')
       }
 
-      return ctx.db.organization.update({
+      return ctx.db.organisatie.update({
         where: { id: input.organizationId },
         data: {
           name: input.name,
