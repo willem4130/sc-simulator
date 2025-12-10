@@ -75,8 +75,9 @@ npx vercel --prod                  # Deploy to production
 - **Role-based access** - ADMIN/EDITOR/VIEWER roles enforced
 
 ### Calculation Engine
-- **Formula language**: Variables (INPUT_*, OUTPUT_*, PARAM_*), operators (+, -, *, /), functions (MAX, MIN, IF, ABS, SQRT, ROUND, CEILING, FLOOR, POW)
+- **Formula language**: Variables (INPUT_*, OUTPUT_*, PARAM_*), operators (+, -, *, /), functions (MAX, MIN, IF, ABS, SQRT, ROUND, CEILING, FLOOR, POW, SKU_LOOKUP)
 - **Dependency resolution**: Topological sort (Kahn's algorithm) with circular dependency detection
+- **SKU complexity effects**: SKU_LOOKUP function uses SkuEffectCurve table for diminishing returns (per 50 SKUs)
 - **Effect curves**: LINEAR, LOGARITHMIC, EXPONENTIAL, STEP_WISE, CUSTOM_INTERPOLATED (implementation pending)
 - **Cached results**: Store in Calculation table with versioning and baseline comparison
 
@@ -194,35 +195,71 @@ Based on `Planning/SUPPLY_CHAIN_SIMULATOR_PLAN.md`:
 
 `DATABASE_URL`, `NEXTAUTH_SECRET`, `NEXTAUTH_URL`, `RESEND_API_KEY` (optional)
 
-## Current Implementation Status
+## Current Implementation Status (December 2025)
 
-### What's Working
-- ✅ **Prisma Schema**: 9 models fully defined with relationships, indexes, and constraints
-- ✅ **Multi-tenant Security**: `organizationProcedure` middleware in tRPC enforces org-level data isolation
-- ✅ **Authentication**: NextAuth v5 configured with PrismaAdapter (using type cast for version compatibility)
-- ✅ **8 tRPC Routers**: All routers created with proper TypeScript types
-  - `organization`: CRUD for org management
-  - `scenario`: Scenario creation, cloning, baseline management
-  - `variable`: Variable definitions and value management (using findFirst pattern for nullable unique constraints)
-  - `parameter`: Global parameter management
-  - `effectCurve`: Curve definitions (5 types supported in schema)
-  - `calculation`: Full implementation with formula parser, evaluator, dependency resolution, and baseline comparison
-  - `comparison`: Placeholder (Phase 5)
-  - `export`: Placeholder (Phase 6)
-- ✅ **Admin Pages**: 6 pages with Scenario management UI (dashboard, scenarios, variables, effect-curves, parameters, settings)
-- ✅ **Calculation Engine**: Complete implementation with formula parser, evaluator, dependency graph, and topological sort
-- ✅ **UI Components**: ScenarioList and ScenarioForm with react-hook-form and Zod validation
-- ✅ **Production Deployment**: Live at https://sc-sim.vercel.app with automatic GitHub deployments
-- ✅ **Type Safety**: All TypeScript checks passing (`npm run typecheck`)
+### ✅ Completed Features
+- **Database & Data Model**:
+  - ✅ Prisma schema with 10 models (added SkuEffectCurve for diminishing returns)
+  - ✅ Organization → Project → Scenario hierarchy
+  - ✅ Seed data with RetailCo org, 1 project, 3 scenarios, 7 years of data
+  - ✅ 28 SKU effect ranges (6500-7550+ SKUs with multipliers 1.0-1.48)
+  - ✅ Connected to Neon PostgreSQL (shared dev/prod)
 
-### What's Not Yet Built
-- ❌ **Production Database**: Vercel Postgres not yet created (deployed but DATABASE_URL not configured)
-- ❌ **Variable Management UI**: VariableList and VariableForm components not yet built
-- ❌ **Parameter Management UI**: Parameter CRUD interface not yet built
-- ❌ **Effect Curves**: Curve logic and preview component not implemented (schema ready)
-- ❌ **Authentication Flow**: Login/signup pages not created (NextAuth configured but no UI)
-- ❌ **Seed Data**: No test data to demonstrate calculation engine
-- ❌ **Testing**: No tests written yet (Vitest and Playwright configured)
+- **Calculation Engine**:
+  - ✅ Formula parser with tokenizer and AST builder
+  - ✅ Formula evaluator with 10 functions (MAX, MIN, IF, ABS, SQRT, ROUND, CEILING, FLOOR, POW, SKU_LOOKUP)
+  - ✅ SKU_LOOKUP function for diminishing returns based on SKU count
+  - ✅ Dependency resolution with topological sort (Kahn's algorithm)
+  - ✅ Circular dependency detection
+  - ✅ Baseline comparison with delta and percentChange
+  - ✅ 8 variables: 3 INPUT (Omzet, Weken, SKUs) + 5 OUTPUT (%, SKU complexity, Voorraad pallets)
+
+- **UI & Visualization**:
+  - ✅ Redesigned CalculationResults component with:
+    - Key metrics overview cards (latest values with deltas)
+    - Line chart showing Voorraad (Pallets) trend over time
+    - Bar chart showing input drivers (Omzet EUR, SKUs)
+    - Detailed results table with period-by-period breakdown
+  - ✅ INPUT/OUTPUT variable separation (Input Values tab shows only INPUT vars)
+  - ✅ Scenario management UI with list, create, edit, detail views
+  - ✅ Variable value input form with period selector
+
+- **Backend & Infrastructure**:
+  - ✅ 8 tRPC routers fully functional (organization, project, scenario, variable, parameter, effectCurve, calculation, comparison, export)
+  - ✅ Multi-tenant security with organizationProcedure middleware
+  - ✅ NextAuth v5 configured (no UI yet)
+  - ✅ Production deployment at https://sc-sim.vercel.app
+  - ✅ All TypeScript checks passing
+
+### 🚧 In Progress / Partially Complete
+- **SKU Diminishing Effects** (80% complete):
+  - ✅ SkuEffectCurve model in schema
+  - ✅ SKU_LOOKUP function implemented
+  - ✅ Seed data with 28 effect ranges
+  - ✅ OUTPUT_SKU_COMPLEXITY_FACTOR variable added
+  - ❌ Calculation engine not yet loading SKU curves from DB (needs wiring)
+
+### 📋 Planned Features (See `/Users/willemvandenberg/.claude/plans/stateless-sleeping-stroustrup.md`)
+
+**High Priority**:
+1. **Organisation Management UI** - CRUD pages for managing organisations
+2. **Calculation Workflow Visualization** - Dynamic flowchart showing variable dependencies (React Flow)
+3. **Complete SKU Effects** - Wire calculation engine to load SKU curves
+4. **Clickable Scenario Rows** - Navigate to detail on row click (not just gear icon)
+5. **Duplicate Scenario** - Clone functionality with rename dialog
+6. **Filters & Search** - Quick navigation by scenario name, project, organisation
+
+**Medium Priority**:
+7. **Projects UI** - List and detail pages for project management
+8. **Benchmark Year Concept** - Improve UI to clearly show benchmark year (2025) vs modifiable years
+9. **Effect Curves Implementation** - Full curve logic with preview component
+
+**Low Priority**:
+10. **Authentication UI** - Login/signup pages (backend already configured)
+11. **Variable Management UI** - Enhanced CRUD for variables
+12. **Parameter Management UI** - Enhanced CRUD for parameters
+13. **Excel Export** - Full comparison export functionality
+14. **Audit Logging** - Track all changes for compliance
 
 ### Known Issues & Decisions
 - **Prisma Unique Constraint Types**: Variable router uses `findFirst` + conditional `update`/`create` instead of `upsert` due to Prisma type issues with nullable fields in compound unique constraints
