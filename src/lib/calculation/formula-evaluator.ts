@@ -146,6 +146,8 @@ export class FormulaEvaluator {
         return this.funcFloor(args)
       case 'POW':
         return this.funcPow(args)
+      case 'SKU_LOOKUP':
+        return this.funcSkuLookup(args)
       default:
         throw new Error(
           `Unknown function: ${functionName}. Error type: ${ErrorType.INVALID_FUNCTION}`
@@ -290,6 +292,43 @@ export class FormulaEvaluator {
 
     const [base, exponent] = args
     return Math.pow(base!, exponent!)
+  }
+
+  /**
+   * SKU_LOOKUP(skuCount) - Lookup SKU complexity effect multiplier from curve table
+   * Finds the highest range start that's <= skuCount and returns its multiplier
+   * E.g., SKU_LOOKUP(6550) with ranges [6500→1.0, 6550→1.01, 6600→1.02] returns 1.01
+   */
+  private funcSkuLookup(args: number[]): number {
+    if (args.length !== 1) {
+      throw new Error(
+        `SKU_LOOKUP function requires exactly 1 argument (skuCount). ` +
+          `Got ${args.length}. Error type: ${ErrorType.INVALID_ARGUMENT}`
+      )
+    }
+
+    const skuCount = Math.floor(args[0]!)
+
+    // Get SKU effect curves from context
+    const curves = this.context.skuEffectCurves
+    if (!curves || curves.length === 0) {
+      // If no curves defined, default to linear (1.0)
+      return 1.0
+    }
+
+    // Sort curves by skuRangeStart (ascending) and find the highest range that's <= skuCount
+    const sortedCurves = [...curves].sort((a, b) => a.skuRangeStart - b.skuRangeStart)
+
+    let matchedMultiplier = 1.0 // Default to linear if no match
+    for (const curve of sortedCurves) {
+      if (skuCount >= curve.skuRangeStart) {
+        matchedMultiplier = curve.effectMultiplier
+      } else {
+        break // Stop once we've passed the SKU count
+      }
+    }
+
+    return matchedMultiplier
   }
 }
 

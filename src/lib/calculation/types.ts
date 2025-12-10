@@ -62,6 +62,7 @@ export interface ASTNode {
 export interface CalculationContext {
   variables: Record<string, number> // Variable name → value
   parameters: Record<string, number> // Parameter name → value
+  skuEffectCurves?: Array<{ skuRangeStart: number; effectMultiplier: number }> // SKU lookup table
 }
 
 export interface VariableDefinition {

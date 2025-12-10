@@ -106,7 +106,49 @@ async function main() {
   ])
   console.log('✅ Created 4 baseline parameters')
 
-  // 5. Create 7 Variables (3 INPUT + 4 OUTPUT)
+  // 5. Create SKU Effect Curves (lookup table for SKU complexity)
+  const skuEffectRanges = [
+    { start: 0, multiplier: 1.0, desc: '0-50 SKUs: Linear (baseline)' },
+    { start: 50, multiplier: 1.01, desc: '50-100 SKUs: +1% complexity' },
+    { start: 100, multiplier: 1.02, desc: '100-150 SKUs: +2% complexity' },
+    { start: 150, multiplier: 1.03, desc: '150-200 SKUs: +3% complexity' },
+    { start: 200, multiplier: 1.05, desc: '200-250 SKUs: +5% complexity' },
+    { start: 250, multiplier: 1.07, desc: '250+ SKUs: +7% complexity' },
+    { start: 6500, multiplier: 1.0, desc: '6500-6550 SKUs: Baseline for current data' },
+    { start: 6550, multiplier: 1.01, desc: '6550-6600 SKUs: +1% complexity' },
+    { start: 6600, multiplier: 1.02, desc: '6600-6650 SKUs: +2% complexity' },
+    { start: 6650, multiplier: 1.03, desc: '6650-6700 SKUs: +3% complexity' },
+    { start: 6700, multiplier: 1.05, desc: '6700-6750 SKUs: +5% complexity' },
+    { start: 6750, multiplier: 1.07, desc: '6750-6800 SKUs: +7% complexity' },
+    { start: 6800, multiplier: 1.10, desc: '6800-6850 SKUs: +10% complexity' },
+    { start: 6850, multiplier: 1.12, desc: '6850-6900 SKUs: +12% complexity' },
+    { start: 6900, multiplier: 1.15, desc: '6900-6950 SKUs: +15% complexity' },
+    { start: 6950, multiplier: 1.18, desc: '6950-7000 SKUs: +18% complexity' },
+    { start: 7000, multiplier: 1.20, desc: '7000-7050 SKUs: +20% complexity' },
+    { start: 7050, multiplier: 1.22, desc: '7050-7100 SKUs: +22% complexity' },
+    { start: 7100, multiplier: 1.25, desc: '7100-7150 SKUs: +25% complexity' },
+    { start: 7150, multiplier: 1.28, desc: '7150-7200 SKUs: +28% complexity' },
+    { start: 7200, multiplier: 1.30, desc: '7200-7250 SKUs: +30% complexity' },
+    { start: 7250, multiplier: 1.32, desc: '7250-7300 SKUs: +32% complexity' },
+    { start: 7300, multiplier: 1.35, desc: '7300-7350 SKUs: +35% complexity' },
+    { start: 7350, multiplier: 1.38, desc: '7350-7400 SKUs: +38% complexity' },
+    { start: 7400, multiplier: 1.40, desc: '7400-7450 SKUs: +40% complexity' },
+    { start: 7450, multiplier: 1.42, desc: '7450-7500 SKUs: +42% complexity' },
+    { start: 7500, multiplier: 1.45, desc: '7500-7550 SKUs: +45% complexity' },
+    { start: 7550, multiplier: 1.48, desc: '7550+ SKUs: +48% complexity' },
+  ]
+
+  await prisma.skuEffectCurve.createMany({
+    data: skuEffectRanges.map((range) => ({
+      organizationId: org.id,
+      skuRangeStart: range.start,
+      effectMultiplier: range.multiplier,
+      description: range.desc,
+    })),
+  })
+  console.log(`✅ Created ${skuEffectRanges.length} SKU effect curve entries`)
+
+  // 6. Create 7 Variables (3 INPUT + 4 OUTPUT)
   const variables = await prisma.$transaction([
     // INPUT 1: Omzet (absolute euros)
     prisma.variable.create({
@@ -198,7 +240,22 @@ async function main() {
         displayOrder: 6,
       },
     }),
-    // OUTPUT 4: Voorraad in Pallets (CALCULATED - the main output!)
+    // OUTPUT 4: SKU Complexity Factor (from lookup table)
+    prisma.variable.create({
+      data: {
+        organizationId: org.id,
+        name: 'OUTPUT_SKU_COMPLEXITY_FACTOR',
+        displayName: 'SKU Complexity Factor',
+        variableType: 'OUTPUT',
+        category: 'BUSINESS',
+        unit: 'multiplier',
+        description: 'SKU complexity multiplier from lookup table (e.g., 1.0 = linear, 1.15 = +15% complexity)',
+        formula: 'SKU_LOOKUP(INPUT_AANTAL_SKUS)',
+        dependencies: ['INPUT_AANTAL_SKUS'],
+        displayOrder: 7,
+      },
+    }),
+    // OUTPUT 5: Voorraad in Pallets (CALCULATED - the main output with SKU complexity!)
     prisma.variable.create({
       data: {
         organizationId: org.id,
@@ -207,14 +264,14 @@ async function main() {
         variableType: 'OUTPUT',
         category: 'VOORRAAD',
         unit: 'pallets',
-        description: 'Calculated inventory in pallets: BASELINE_VOORRAAD * (Omzet%/100) * (SKU%/100) * (Weken%/100)',
-        formula: 'PARAM_BASELINE_VOORRAAD * (OUTPUT_OMZET_PERCENTAGE / 100) * (OUTPUT_SKU_GROWTH / 100) * (OUTPUT_VOORRAAD_WEKEN_PERCENTAGE / 100)',
-        dependencies: ['OUTPUT_OMZET_PERCENTAGE', 'OUTPUT_SKU_GROWTH', 'OUTPUT_VOORRAAD_WEKEN_PERCENTAGE'],
-        displayOrder: 7,
+        description: 'Calculated inventory in pallets with SKU complexity: BASELINE_VOORRAAD * (Omzet%/100) * (SKU%/100) * (Weken%/100) * SKU_COMPLEXITY_FACTOR',
+        formula: 'PARAM_BASELINE_VOORRAAD * (OUTPUT_OMZET_PERCENTAGE / 100) * (OUTPUT_SKU_GROWTH / 100) * (OUTPUT_VOORRAAD_WEKEN_PERCENTAGE / 100) * OUTPUT_SKU_COMPLEXITY_FACTOR',
+        dependencies: ['OUTPUT_OMZET_PERCENTAGE', 'OUTPUT_SKU_GROWTH', 'OUTPUT_VOORRAAD_WEKEN_PERCENTAGE', 'OUTPUT_SKU_COMPLEXITY_FACTOR'],
+        displayOrder: 8,
       },
     }),
   ])
-  console.log('✅ Created 7 variables (3 INPUT + 4 OUTPUT)')
+  console.log('✅ Created 8 variables (3 INPUT + 5 OUTPUT)')
 
   // Get variable IDs
   const allVars = await prisma.variable.findMany({

@@ -11,9 +11,21 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table'
-import { ArrowUp, ArrowDown, Minus, TrendingUp, Settings } from 'lucide-react'
+import { ArrowUp, ArrowDown, Minus, TrendingUp, Settings, BarChart3, LineChart } from 'lucide-react'
 import type { Calculation, Variable, Parameter } from '@prisma/client'
 import type { Period } from '@/lib/utils'
+import {
+  LineChart as RechartsLineChart,
+  Line,
+  BarChart as RechartsBarChart,
+  Bar,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  Legend,
+  ResponsiveContainer,
+} from 'recharts'
 
 interface CalculationResultsProps {
   calculations: Calculation[]
@@ -73,6 +85,32 @@ export default function CalculationResults({
     })
   }, [calculations, periods])
 
+  // Prepare chart data
+  const chartData = useMemo(() => {
+    return resultsByPeriod.map(({ period, results }) => {
+      const dataPoint: Record<string, string | number> = {
+        period: period.label,
+      }
+
+      outputVariables.forEach((variable) => {
+        const result = results?.[variable.name] as VariableResult | undefined
+
+        // For Omzet % and SKU %, show absolute values
+        if (variable.name === 'OUTPUT_OMZET_PERCENTAGE' && result) {
+          dataPoint['Omzet (EUR)'] = getInputValue('INPUT_OMZET', period.periodStart) ?? 0
+        } else if (variable.name === 'OUTPUT_SKU_GROWTH' && result) {
+          dataPoint['SKUs'] = getInputValue('INPUT_AANTAL_SKUS', period.periodStart) ?? 0
+        } else if (variable.name === 'OUTPUT_VOORRAAD_PALLETS' && result) {
+          dataPoint['Voorraad (Pallets)'] = Math.round(result.value)
+        } else if (variable.name === 'OUTPUT_VOORRAAD_WEKEN_PERCENTAGE' && result) {
+          dataPoint['Voorraad (Weken)'] = getInputValue('INPUT_VOORRAAD_IN_WEKEN', period.periodStart) ?? 0
+        }
+      })
+
+      return dataPoint
+    })
+  }, [resultsByPeriod, outputVariables, getInputValue, periods])
+
   if (calculations.length === 0) {
     return (
       <div className="space-y-6">
@@ -93,6 +131,154 @@ export default function CalculationResults({
 
   return (
     <div className="space-y-6">
+      {/* Key Metrics Overview */}
+      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+        {outputVariables.map((variable) => {
+          const latestPeriod = resultsByPeriod[resultsByPeriod.length - 1]
+          if (!latestPeriod) return null
+
+          const result = latestPeriod.results?.[variable.name] as VariableResult | undefined
+
+          let displayValue: number | null = null
+          let displayUnit = variable.unit
+          let subtext: string | null = null
+          let deltaValue: number | null = null
+
+          if (variable.name === 'OUTPUT_OMZET_PERCENTAGE' && result) {
+            displayValue = getInputValue('INPUT_OMZET', latestPeriod.period.periodStart) ?? null
+            displayUnit = 'EUR'
+            subtext = `${result.value.toFixed(0)}%`
+            deltaValue = result.delta ?? null
+          } else if (variable.name === 'OUTPUT_SKU_GROWTH' && result) {
+            displayValue = getInputValue('INPUT_AANTAL_SKUS', latestPeriod.period.periodStart) ?? null
+            displayUnit = 'SKUs'
+            subtext = `${result.value.toFixed(1)}%`
+            deltaValue = result.delta ?? null
+          } else if (variable.name === 'OUTPUT_VOORRAAD_PALLETS' && result) {
+            displayValue = result.value
+            deltaValue = result.delta ?? null
+          } else if (result) {
+            displayValue = result.value
+            deltaValue = result.delta ?? null
+          }
+
+          return (
+            <Card key={variable.id}>
+              <CardHeader className="pb-2">
+                <CardDescription className="text-xs">
+                  {variable.name === 'OUTPUT_OMZET_PERCENTAGE' ? 'Omzet' :
+                   variable.name === 'OUTPUT_SKU_GROWTH' ? 'SKU Count' :
+                   variable.displayName}
+                </CardDescription>
+                <CardTitle className="text-2xl">
+                  {displayValue !== null ? (
+                    <>
+                      {displayValue.toLocaleString(undefined, {
+                        maximumFractionDigits: 0,
+                      })}
+                      {displayUnit === 'EUR' && <span className="text-sm ml-1 text-muted-foreground">EUR</span>}
+                      {displayUnit === 'pallets' && <span className="text-sm ml-1 text-muted-foreground">pallets</span>}
+                      {displayUnit === 'aantal' && <span className="text-sm ml-1 text-muted-foreground">SKUs</span>}
+                    </>
+                  ) : (
+                    '-'
+                  )}
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                {subtext && (
+                  <p className="text-xs text-muted-foreground mb-2">{subtext}</p>
+                )}
+                {!isBaseline && deltaValue !== null && deltaValue !== undefined && (
+                  <div className="flex items-center gap-1 text-sm">
+                    {deltaValue > 0 ? (
+                      <ArrowUp className="h-4 w-4 text-green-600" />
+                    ) : deltaValue < 0 ? (
+                      <ArrowDown className="h-4 w-4 text-red-600" />
+                    ) : (
+                      <Minus className="h-4 w-4 text-muted-foreground" />
+                    )}
+                    <span
+                      className={
+                        deltaValue > 0
+                          ? 'text-green-600'
+                          : deltaValue < 0
+                            ? 'text-red-600'
+                            : 'text-muted-foreground'
+                      }
+                    >
+                      {deltaValue > 0 ? '+' : ''}
+                      {deltaValue.toLocaleString(undefined, {
+                        maximumFractionDigits: 0,
+                      })}
+                    </span>
+                    <span className="text-muted-foreground text-xs">vs baseline</span>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          )
+        })}
+      </div>
+
+      {/* Voorraad Pallets Trend Chart */}
+      <Card>
+        <CardHeader>
+          <div className="flex items-center gap-2">
+            <LineChart className="h-5 w-5 text-muted-foreground" />
+            <CardTitle>Voorraad (Pallets) Over Time</CardTitle>
+          </div>
+          <CardDescription>
+            Inventory levels across all periods
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <ResponsiveContainer width="100%" height={300}>
+            <RechartsLineChart data={chartData}>
+              <CartesianGrid strokeDasharray="3 3" />
+              <XAxis dataKey="period" />
+              <YAxis />
+              <Tooltip />
+              <Legend />
+              <Line
+                type="monotone"
+                dataKey="Voorraad (Pallets)"
+                stroke="hsl(var(--primary))"
+                strokeWidth={2}
+                dot={{ r: 4 }}
+              />
+            </RechartsLineChart>
+          </ResponsiveContainer>
+        </CardContent>
+      </Card>
+
+      {/* Input Drivers Chart */}
+      <Card>
+        <CardHeader>
+          <div className="flex items-center gap-2">
+            <BarChart3 className="h-5 w-5 text-muted-foreground" />
+            <CardTitle>Input Drivers</CardTitle>
+          </div>
+          <CardDescription>
+            Revenue, SKUs, and inventory weeks over time
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <ResponsiveContainer width="100%" height={300}>
+            <RechartsBarChart data={chartData}>
+              <CartesianGrid strokeDasharray="3 3" />
+              <XAxis dataKey="period" />
+              <YAxis yAxisId="left" orientation="left" stroke="hsl(var(--primary))" />
+              <YAxis yAxisId="right" orientation="right" stroke="hsl(var(--chart-2))" />
+              <Tooltip />
+              <Legend />
+              <Bar yAxisId="left" dataKey="Omzet (EUR)" fill="hsl(var(--primary))" />
+              <Bar yAxisId="right" dataKey="SKUs" fill="hsl(var(--chart-2))" />
+            </RechartsBarChart>
+          </ResponsiveContainer>
+        </CardContent>
+      </Card>
+
       {/* Global Parameters */}
       <Card>
         <CardHeader>
@@ -105,7 +291,7 @@ export default function CalculationResults({
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
             {parameters.map((param) => (
               <div
                 key={param.id}
@@ -131,12 +317,12 @@ export default function CalculationResults({
         </CardContent>
       </Card>
 
-      {/* Output Variables Results */}
+      {/* Detailed Results Table */}
       <Card>
         <CardHeader>
-          <CardTitle>Calculated Results</CardTitle>
+          <CardTitle>Detailed Results</CardTitle>
           <CardDescription>
-            Output variables calculated from formulas
+            All calculated values by period
             {!isBaseline && ' with baseline comparison'}
           </CardDescription>
         </CardHeader>
