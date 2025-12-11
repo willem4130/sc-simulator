@@ -84,8 +84,16 @@ export const calculationRouter = createTRPCRouter({
       })
     )
     .mutation(async ({ ctx, input }) => {
-      // Check if calculation already exists (unless force recalculate)
-      if (!input.forceRecalculate) {
+      // If force recalculate, delete existing calculations for this scenario/period
+      if (input.forceRecalculate) {
+        await ctx.db.calculation.deleteMany({
+          where: {
+            scenarioId: input.scenarioId,
+            periodStart: input.periodStart ?? null,
+          },
+        })
+      } else {
+        // Check if calculation already exists
         const existingCalc = await ctx.db.calculation.findFirst({
           where: {
             scenarioId: input.scenarioId,
@@ -240,16 +248,8 @@ export const calculationRouter = createTRPCRouter({
         forceRecalculate: input.forceRecalculate,
       })
 
-      // Get next version number
-      const latestCalc = await ctx.db.calculation.findFirst({
-        where: {
-          scenarioId: input.scenarioId,
-          periodStart: input.periodStart ?? null,
-        },
-        orderBy: { version: 'desc' },
-      })
-
-      const nextVersion = (latestCalc?.version ?? 0) + 1
+      // Version is always 1 since we delete old calculations when forceRecalculate is true
+      const nextVersion = 1
 
       // Store calculation result
       const calculation = await ctx.db.calculation.create({
