@@ -7,10 +7,11 @@ import { api } from '@/trpc/react'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
-import { ArrowLeft, Calendar, FileInput, BarChart3, Calculator, Loader2 } from 'lucide-react'
+import { ArrowLeft, Calendar, FileInput, BarChart3, Calculator, Loader2, Network } from 'lucide-react'
 import { toast } from 'sonner'
 import VariableValueForm from '@/components/admin/VariableValueForm'
 import CalculationResults from '@/components/admin/CalculationResults'
+import CalculationWorkflow from '@/components/admin/CalculationWorkflow'
 import { generatePeriods, getTimePeriodLabel } from '@/lib/utils'
 
 export default function ScenarioDetailPage() {
@@ -195,13 +196,17 @@ export default function ScenarioDetailPage() {
         </CardContent>
       </Card>
 
-      {/* Tabs for Input Values and Results */}
+      {/* Tabs for Input Values, Workflow, and Results */}
       <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
         <div className="flex items-center justify-between">
-          <TabsList className="grid w-full max-w-md grid-cols-2">
+          <TabsList className="grid w-full max-w-2xl grid-cols-3">
             <TabsTrigger value="input" className="gap-2">
               <FileInput className="h-4 w-4" />
               Input Values
+            </TabsTrigger>
+            <TabsTrigger value="workflow" className="gap-2">
+              <Network className="h-4 w-4" />
+              Workflow
             </TabsTrigger>
             <TabsTrigger value="results" className="gap-2">
               <BarChart3 className="h-4 w-4" />
@@ -260,6 +265,11 @@ export default function ScenarioDetailPage() {
               )}
             </CardContent>
           </Card>
+        </TabsContent>
+
+        {/* Workflow Tab */}
+        <TabsContent value="workflow" className="space-y-6">
+          <CalculationWorkflow variables={variables} parameters={parameters} />
         </TabsContent>
 
         {/* Results Tab */}
