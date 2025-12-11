@@ -183,6 +183,17 @@ export const calculationRouter = createTRPCRouter({
         }
       }
 
+      // Load SKU effect curves
+      const dbSkuCurves = await ctx.db.skuEffectCurve.findMany({
+        where: { organizationId: input.organizationId },
+        orderBy: { skuRangeStart: 'asc' },
+      })
+
+      const skuEffectCurves = dbSkuCurves.map((curve) => ({
+        skuRangeStart: curve.skuRangeStart,
+        effectMultiplier: curve.effectMultiplier,
+      }))
+
       // Build calculation context
       const context: CalculationEngineContext = {
         variables,
@@ -190,6 +201,7 @@ export const calculationRouter = createTRPCRouter({
         inputValues,
         baselineResults: baselineResults as never,
         effectCurves: new Map(), // TODO: Load effect curves in Phase 3
+        skuEffectCurves,
       }
 
       // Run calculation

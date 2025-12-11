@@ -52,6 +52,7 @@ export class CalculationEngine {
       const calcContext: CalculationContext = {
         variables: {},
         parameters: {},
+        skuEffectCurves: this.context.skuEffectCurves,
       }
 
       // Load parameters

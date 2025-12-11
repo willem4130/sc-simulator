@@ -24,15 +24,23 @@ const prisma = new PrismaClient()
 async function main() {
   console.log('🌱 Starting seed...')
 
-  // 1. Create Organization
-  const org = await prisma.organisatie.create({
-    data: {
-      name: 'RetailCo',
-      slug: 'retailco',
-      description: 'Supply chain scenario modeling with voorraad calculation',
-    },
+  // 1. Find or Create Organization
+  let org = await prisma.organisatie.findUnique({
+    where: { slug: 'retailco' },
   })
-  console.log('✅ Created organization:', org.name)
+
+  if (!org) {
+    org = await prisma.organisatie.create({
+      data: {
+        name: 'RetailCo',
+        slug: 'retailco',
+        description: 'Supply chain scenario modeling with voorraad calculation',
+      },
+    })
+    console.log('✅ Created organization:', org.name)
+  } else {
+    console.log('✅ Found existing organization:', org.name)
+  }
 
   // 2. Create Admin User
   const user = await prisma.user.create({
@@ -148,9 +156,9 @@ async function main() {
   })
   console.log(`✅ Created ${skuEffectRanges.length} SKU effect curve entries`)
 
-  // 6. Create 7 Variables (3 INPUT + 4 OUTPUT)
+  // 6. Create Variables (7 INPUT + 5 OUTPUT = 12 total)
   const variables = await prisma.$transaction([
-    // INPUT 1: Omzet (absolute euros)
+    // INPUT 1: Omzet (absolute euros - for projection years)
     prisma.variable.create({
       data: {
         organizationId: org.id,
@@ -165,7 +173,7 @@ async function main() {
         displayOrder: 1,
       },
     }),
-    // INPUT 2: Voorraad in Weken (absolute weeks)
+    // INPUT 2: Voorraad in Weken (absolute weeks - for projection years)
     prisma.variable.create({
       data: {
         organizationId: org.id,
@@ -180,7 +188,7 @@ async function main() {
         displayOrder: 2,
       },
     }),
-    // INPUT 3: Aantal SKUs
+    // INPUT 3: Aantal SKUs (for projection years)
     prisma.variable.create({
       data: {
         organizationId: org.id,
@@ -195,6 +203,69 @@ async function main() {
         displayOrder: 3,
       },
     }),
+
+    // ===== BASELINE INPUTS (Benchmark Year 2025) =====
+    // INPUT 4: Baseline Voorraad (Pallets) - Benchmark year only
+    prisma.variable.create({
+      data: {
+        organizationId: org.id,
+        name: 'INPUT_BASELINE_VOORRAAD',
+        displayName: 'Baseline Voorraad (Pallets)',
+        variableType: 'INPUT',
+        category: 'VOORRAAD',
+        unit: 'pallets',
+        description: 'Benchmark year inventory in pallets (used as baseline for all calculations)',
+        formula: null,
+        dependencies: [],
+        displayOrder: 9,
+      },
+    }),
+    // INPUT 5: Baseline Omzet - Benchmark year only
+    prisma.variable.create({
+      data: {
+        organizationId: org.id,
+        name: 'INPUT_BASELINE_OMZET',
+        displayName: 'Baseline Omzet (EUR)',
+        variableType: 'INPUT',
+        category: 'BUSINESS',
+        unit: 'EUR',
+        description: 'Benchmark year revenue (used to calculate percentages)',
+        formula: null,
+        dependencies: [],
+        displayOrder: 10,
+      },
+    }),
+    // INPUT 6: Baseline SKUs - Benchmark year only
+    prisma.variable.create({
+      data: {
+        organizationId: org.id,
+        name: 'INPUT_BASELINE_SKUS',
+        displayName: 'Baseline Aantal SKUs',
+        variableType: 'INPUT',
+        category: 'BUSINESS',
+        unit: 'aantal',
+        description: 'Benchmark year SKU count (used to calculate percentages)',
+        formula: null,
+        dependencies: [],
+        displayOrder: 11,
+      },
+    }),
+    // INPUT 7: Baseline Voorraad Weken - Benchmark year only
+    prisma.variable.create({
+      data: {
+        organizationId: org.id,
+        name: 'INPUT_BASELINE_VOORRAAD_WEKEN',
+        displayName: 'Baseline Voorraad in Weken',
+        variableType: 'INPUT',
+        category: 'VOORRAAD',
+        unit: 'weken',
+        description: 'Benchmark year inventory weeks (used to calculate percentages)',
+        formula: null,
+        dependencies: [],
+        displayOrder: 12,
+      },
+    }),
+    // ===== OUTPUT VARIABLES =====
     // OUTPUT 1: Omzet Percentage (derived)
     prisma.variable.create({
       data: {
@@ -205,8 +276,8 @@ async function main() {
         category: 'BUSINESS',
         unit: '%',
         description: 'Revenue as percentage of baseline',
-        formula: '(INPUT_OMZET / PARAM_BASELINE_OMZET) * 100',
-        dependencies: ['INPUT_OMZET'],
+        formula: '(INPUT_OMZET / INPUT_BASELINE_OMZET) * 100',
+        dependencies: ['INPUT_OMZET', 'INPUT_BASELINE_OMZET'],
         displayOrder: 4,
       },
     }),
@@ -220,8 +291,8 @@ async function main() {
         category: 'BUSINESS',
         unit: '%',
         description: 'SKU count as percentage of baseline',
-        formula: '(INPUT_AANTAL_SKUS / PARAM_BASELINE_SKUS) * 100',
-        dependencies: ['INPUT_AANTAL_SKUS'],
+        formula: '(INPUT_AANTAL_SKUS / INPUT_BASELINE_SKUS) * 100',
+        dependencies: ['INPUT_AANTAL_SKUS', 'INPUT_BASELINE_SKUS'],
         displayOrder: 5,
       },
     }),
@@ -235,8 +306,8 @@ async function main() {
         category: 'VOORRAAD',
         unit: '%',
         description: 'Inventory weeks as percentage of baseline',
-        formula: '(INPUT_VOORRAAD_IN_WEKEN / PARAM_BASELINE_VOORRAAD_WEKEN) * 100',
-        dependencies: ['INPUT_VOORRAAD_IN_WEKEN'],
+        formula: '(INPUT_VOORRAAD_IN_WEKEN / INPUT_BASELINE_VOORRAAD_WEKEN) * 100',
+        dependencies: ['INPUT_VOORRAAD_IN_WEKEN', 'INPUT_BASELINE_VOORRAAD_WEKEN'],
         displayOrder: 6,
       },
     }),
@@ -265,13 +336,13 @@ async function main() {
         category: 'VOORRAAD',
         unit: 'pallets',
         description: 'Calculated inventory in pallets with SKU complexity: BASELINE_VOORRAAD * (Omzet%/100) * (SKU%/100) * (Weken%/100) * SKU_COMPLEXITY_FACTOR',
-        formula: 'PARAM_BASELINE_VOORRAAD * (OUTPUT_OMZET_PERCENTAGE / 100) * (OUTPUT_SKU_GROWTH / 100) * (OUTPUT_VOORRAAD_WEKEN_PERCENTAGE / 100) * OUTPUT_SKU_COMPLEXITY_FACTOR',
-        dependencies: ['OUTPUT_OMZET_PERCENTAGE', 'OUTPUT_SKU_GROWTH', 'OUTPUT_VOORRAAD_WEKEN_PERCENTAGE', 'OUTPUT_SKU_COMPLEXITY_FACTOR'],
+        formula: 'INPUT_BASELINE_VOORRAAD * (OUTPUT_OMZET_PERCENTAGE / 100) * (OUTPUT_SKU_GROWTH / 100) * (OUTPUT_VOORRAAD_WEKEN_PERCENTAGE / 100) * OUTPUT_SKU_COMPLEXITY_FACTOR',
+        dependencies: ['INPUT_BASELINE_VOORRAAD', 'OUTPUT_OMZET_PERCENTAGE', 'OUTPUT_SKU_GROWTH', 'OUTPUT_VOORRAAD_WEKEN_PERCENTAGE', 'OUTPUT_SKU_COMPLEXITY_FACTOR'],
         displayOrder: 8,
       },
     }),
   ])
-  console.log('✅ Created 8 variables (3 INPUT + 5 OUTPUT)')
+  console.log('✅ Created 12 variables (7 INPUT + 5 OUTPUT)')
 
   // Get variable IDs
   const allVars = await prisma.variable.findMany({
@@ -325,10 +396,11 @@ async function main() {
   // 7. Create VariableValues for all scenarios (7 years each: 2025-2031)
   const years = [2025, 2026, 2027, 2028, 2029, 2030, 2031]
 
-  // Baseline values
+  // Baseline values (used for benchmark year 2025)
   const BASELINE_OMZET = 1000000 // €1M
   const BASELINE_VOORRAAD_WEKEN = 4 // 4 weeks coverage
   const BASELINE_SKUS = 6500 // 6500 SKUs
+  const BASELINE_VOORRAAD_PALLETS = 8500 // 8500 pallets
 
   // Helper to create values for a scenario
   const createValues = async (
@@ -367,12 +439,49 @@ async function main() {
     console.log(`✅ Created ${values.length} variable values for ${scenarioName}`)
   }
 
+  // Helper to create baseline INPUT values (only for 2025 benchmark year)
+  const createBaselineInputs = async (scenarioId: string, scenarioName: string) => {
+    const baselineValues = [
+      {
+        scenarioId,
+        variableId: varMap.get('INPUT_BASELINE_VOORRAAD')!,
+        value: BASELINE_VOORRAAD_PALLETS,
+        periodStart: new Date('2025-01-01'),
+        periodEnd: new Date('2025-12-31'),
+      },
+      {
+        scenarioId,
+        variableId: varMap.get('INPUT_BASELINE_OMZET')!,
+        value: BASELINE_OMZET,
+        periodStart: new Date('2025-01-01'),
+        periodEnd: new Date('2025-12-31'),
+      },
+      {
+        scenarioId,
+        variableId: varMap.get('INPUT_BASELINE_SKUS')!,
+        value: BASELINE_SKUS,
+        periodStart: new Date('2025-01-01'),
+        periodEnd: new Date('2025-12-31'),
+      },
+      {
+        scenarioId,
+        variableId: varMap.get('INPUT_BASELINE_VOORRAAD_WEKEN')!,
+        value: BASELINE_VOORRAAD_WEKEN,
+        periodStart: new Date('2025-01-01'),
+        periodEnd: new Date('2025-12-31'),
+      },
+    ]
+    await prisma.variableValue.createMany({ data: baselineValues })
+    console.log(`✅ Created 4 baseline input values for ${scenarioName}`)
+  }
+
   // Baseline: Flat projections (no growth)
   await createValues(baselineScenario.id, 'Baseline 2025', () => ({
     omzet: BASELINE_OMZET,
     voorraadWeken: BASELINE_VOORRAAD_WEKEN,
     skus: BASELINE_SKUS,
   }))
+  await createBaselineInputs(baselineScenario.id, 'Baseline 2025')
 
   // Optimalisatie A: +5% revenue, -10% inventory weeks, stable SKUs per year
   await createValues(scenarioA.id, 'Optimalisatie A', (year) => {
@@ -383,6 +492,7 @@ async function main() {
       skus: BASELINE_SKUS, // Stable
     }
   })
+  await createBaselineInputs(scenarioA.id, 'Optimalisatie A')
 
   // Groei B: +10% revenue, stable weeks, +1000 SKUs per year
   await createValues(scenarioB.id, 'Groei B', (year) => {
@@ -393,6 +503,7 @@ async function main() {
       skus: BASELINE_SKUS + yearsFromBaseline * 1000,
     }
   })
+  await createBaselineInputs(scenarioB.id, 'Groei B')
 
   console.log('🎉 Seed complete!')
   console.log('')

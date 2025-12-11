@@ -128,10 +128,77 @@ export default function VariableValueForm({
     return <div className="text-center text-muted-foreground">No periods configured</div>
   }
 
+  // Separate baseline and regular variables
+  const baselineVariables = variables.filter((v) => v.name.startsWith('INPUT_BASELINE_'))
+  const regularVariables = variables.filter((v) => !v.name.startsWith('INPUT_BASELINE_'))
+
   return (
     <Form {...form}>
       <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
-        {/* Table showing all periods in one view */}
+        {/* Benchmark Baseline Section - Only for 2025 */}
+        {baselineVariables.length > 0 && periods.some((p) => p.label === '2025') && (
+          <div className="rounded-lg border-2 border-primary/20 bg-primary/5">
+            <div className="border-b border-primary/20 bg-primary/10 px-4 py-3">
+              <div className="flex items-center gap-2">
+                <Badge variant="default" className="text-xs font-semibold">
+                  BENCHMARK
+                </Badge>
+                <h3 className="text-sm font-semibold">2025 Baseline Values</h3>
+              </div>
+              <p className="mt-1 text-xs text-muted-foreground">
+                Reference values for baseline scenario calculations
+              </p>
+            </div>
+            <div className="p-4">
+              <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+                {baselineVariables
+                  .sort((a, b) => a.displayOrder - b.displayOrder)
+                  .map((variable) => {
+                    const period2025 = periods.find((p) => p.label === '2025')
+                    if (!period2025) return null
+                    const fieldName = `values.${variable.id}_${period2025.value}` as const
+                    return (
+                      <div key={variable.id} className="space-y-2">
+                        <label className="text-sm font-medium">
+                          {variable.displayName}
+                          {variable.unit && (
+                            <span className="ml-1 text-xs text-muted-foreground">({variable.unit})</span>
+                          )}
+                        </label>
+                        <FormField
+                          control={form.control}
+                          name={fieldName as 'values'}
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormControl>
+                                <Input
+                                  type="number"
+                                  step="any"
+                                  className="text-center font-semibold"
+                                  value={(field.value as unknown as number) ?? ''}
+                                  onChange={(e) => {
+                                    const val = e.target.valueAsNumber
+                                    field.onChange(isNaN(val) ? '' : val)
+                                  }}
+                                  onBlur={field.onBlur}
+                                  name={field.name}
+                                  ref={field.ref}
+                                  disabled={field.disabled}
+                                />
+                              </FormControl>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+                      </div>
+                    )
+                  })}
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Regular Input/Output Variables Table */}
         <div className="rounded-md border">
           <Table>
             <TableHeader>
@@ -145,7 +212,7 @@ export default function VariableValueForm({
               </TableRow>
             </TableHeader>
             <TableBody>
-              {variables
+              {regularVariables
                 .sort((a, b) => {
                   // Sort: INPUT variables first, then OUTPUT variables
                   if (a.variableType !== b.variableType) {
@@ -182,10 +249,10 @@ export default function VariableValueForm({
                                     type="number"
                                     step={variable.unit === '%' ? '1' : 'any'}
                                     className="text-center"
-                                    value={(field.value as unknown as number) || 0}
+                                    value={(field.value as unknown as number) ?? ''}
                                     onChange={(e) => {
                                       const val = e.target.valueAsNumber
-                                      field.onChange(isNaN(val) ? 0 : val)
+                                      field.onChange(isNaN(val) ? '' : val)
                                     }}
                                     onBlur={field.onBlur}
                                     name={field.name}

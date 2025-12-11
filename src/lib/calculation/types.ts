@@ -235,4 +235,5 @@ export interface CalculationEngineContext {
   inputValues: VariableValueInput[]
   baselineResults: Record<string, VariableResult> | null
   effectCurves: Map<string, EffectCurveDefinition>
+  skuEffectCurves: Array<{ skuRangeStart: number; effectMultiplier: number }>
 }

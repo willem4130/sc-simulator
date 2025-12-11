@@ -154,6 +154,11 @@ export default function CalculationResults({
             displayUnit = 'SKUs'
             subtext = `${result.value.toFixed(1)}%`
             deltaValue = result.delta ?? null
+          } else if (variable.name === 'OUTPUT_VOORRAAD_WEKEN_PERCENTAGE' && result) {
+            displayValue = getInputValue('INPUT_VOORRAAD_IN_WEKEN', latestPeriod.period.periodStart) ?? null
+            displayUnit = 'weken'
+            subtext = `${result.value.toFixed(1)}%`
+            deltaValue = result.delta ?? null
           } else if (variable.name === 'OUTPUT_VOORRAAD_PALLETS' && result) {
             displayValue = result.value
             deltaValue = result.delta ?? null
@@ -168,6 +173,7 @@ export default function CalculationResults({
                 <CardDescription className="text-xs">
                   {variable.name === 'OUTPUT_OMZET_PERCENTAGE' ? 'Omzet' :
                    variable.name === 'OUTPUT_SKU_GROWTH' ? 'SKU Count' :
+                   variable.name === 'OUTPUT_VOORRAAD_WEKEN_PERCENTAGE' ? 'Voorraad in Weken' :
                    variable.displayName}
                 </CardDescription>
                 <CardTitle className="text-2xl">
@@ -279,44 +285,6 @@ export default function CalculationResults({
         </CardContent>
       </Card>
 
-      {/* Global Parameters */}
-      <Card>
-        <CardHeader>
-          <div className="flex items-center gap-2">
-            <Settings className="h-5 w-5 text-muted-foreground" />
-            <CardTitle>Global Parameters</CardTitle>
-          </div>
-          <CardDescription>
-            Configuration values used in calculations
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-            {parameters.map((param) => (
-              <div
-                key={param.id}
-                className="rounded-lg border bg-muted/50 p-4"
-              >
-                <div className="text-sm font-medium text-muted-foreground">
-                  {param.displayName}
-                </div>
-                <div className="mt-1 flex items-baseline gap-2">
-                  <div className="text-2xl font-bold">{param.value.toLocaleString()}</div>
-                  {param.unit && (
-                    <div className="text-sm text-muted-foreground">{param.unit}</div>
-                  )}
-                </div>
-                {param.description && (
-                  <div className="mt-1 text-xs text-muted-foreground">
-                    {param.description}
-                  </div>
-                )}
-              </div>
-            ))}
-          </div>
-        </CardContent>
-      </Card>
-
       {/* Detailed Results Table */}
       <Card>
         <CardHeader>
@@ -336,6 +304,7 @@ export default function CalculationResults({
                     // Override display names for absolute value columns
                     let displayName = variable.displayName
                     let displayUnit = variable.unit
+                    let isPrimaryColumn = false
 
                     if (variable.name === 'OUTPUT_OMZET_PERCENTAGE') {
                       displayName = 'Omzet'
@@ -343,10 +312,15 @@ export default function CalculationResults({
                     } else if (variable.name === 'OUTPUT_SKU_GROWTH') {
                       displayName = 'SKU Count'
                       displayUnit = 'SKUs'
+                    } else if (variable.name === 'OUTPUT_VOORRAAD_WEKEN_PERCENTAGE') {
+                      displayName = 'Voorraad in Weken'
+                      displayUnit = 'weken'
+                    } else if (variable.name === 'OUTPUT_VOORRAAD_PALLETS') {
+                      isPrimaryColumn = true
                     }
 
                     return (
-                      <TableHead key={variable.id} className="text-right">
+                      <TableHead key={variable.id} className={`text-right ${isPrimaryColumn ? 'bg-primary/10' : ''}`}>
                         <div>{displayName}</div>
                         {displayUnit && (
                           <div className="text-xs font-normal text-muted-foreground">
@@ -374,10 +348,11 @@ export default function CalculationResults({
                     {outputVariables.map((variable) => {
                       const result = results?.[variable.name] as VariableResult | undefined
 
-                      // For Omzet % and SKU %, show absolute values with % as subtext
+                      // For Omzet %, SKU %, and Voorraad Weken %, show absolute values with % as subtext
                       let displayValue: number | null = null
                       let displayUnit = variable.unit
                       let subtext: string | null = null
+                      let isPrimaryColumn = false
 
                       if (variable.name === 'OUTPUT_OMZET_PERCENTAGE' && result) {
                         displayValue = getInputValue('INPUT_OMZET', period.periodStart)
@@ -387,12 +362,19 @@ export default function CalculationResults({
                         displayValue = getInputValue('INPUT_AANTAL_SKUS', period.periodStart)
                         displayUnit = 'SKUs'
                         subtext = `${result.value.toFixed(2)}%`
+                      } else if (variable.name === 'OUTPUT_VOORRAAD_WEKEN_PERCENTAGE' && result) {
+                        displayValue = getInputValue('INPUT_VOORRAAD_IN_WEKEN', period.periodStart)
+                        displayUnit = 'weken'
+                        subtext = `${result.value.toFixed(1)}%`
+                      } else if (variable.name === 'OUTPUT_VOORRAAD_PALLETS' && result) {
+                        displayValue = result.value
+                        isPrimaryColumn = true
                       } else if (result) {
                         displayValue = result.value
                       }
 
                       return (
-                        <TableCell key={variable.id} className="text-right">
+                        <TableCell key={variable.id} className={`text-right ${isPrimaryColumn ? 'bg-primary/10 border-l-2 border-l-primary' : ''}`}>
                           {displayValue !== null ? (
                             <div className="space-y-1">
                               <div className="text-lg font-semibold">
