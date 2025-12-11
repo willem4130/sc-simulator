@@ -132,11 +132,15 @@ export default function VariableValueForm({
   const baselineVariables = variables.filter((v) => v.name.startsWith('INPUT_BASELINE_'))
   const regularVariables = variables.filter((v) => !v.name.startsWith('INPUT_BASELINE_'))
 
+  // Filter out 2025 from regular periods (shown in baseline section only)
+  const regularPeriods = periods.filter((p) => p.label !== '2025')
+  const has2025 = periods.some((p) => p.label === '2025')
+
   return (
     <Form {...form}>
       <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
         {/* Benchmark Baseline Section - Only for 2025 */}
-        {baselineVariables.length > 0 && periods.some((p) => p.label === '2025') && (
+        {baselineVariables.length > 0 && has2025 && (
           <div className="rounded-lg border-2 border-primary/20 bg-primary/5">
             <div className="border-b border-primary/20 bg-primary/10 px-4 py-3">
               <div className="flex items-center gap-2">
@@ -204,7 +208,7 @@ export default function VariableValueForm({
             <TableHeader>
               <TableRow>
                 <TableHead className="w-[200px]">Variable</TableHead>
-                {periods.map((period) => (
+                {regularPeriods.map((period) => (
                   <TableHead key={period.value} className="text-center">
                     <div className="font-semibold">{period.label}</div>
                   </TableHead>
@@ -235,7 +239,7 @@ export default function VariableValueForm({
                         </Badge>
                       </div>
                     </TableCell>
-                    {periods.map((period) => {
+                    {regularPeriods.map((period) => {
                       const fieldName = `values.${variable.id}_${period.value}` as const
                       return (
                         <TableCell key={period.value} className="p-2">
@@ -277,7 +281,7 @@ export default function VariableValueForm({
         {/* Save button */}
         <div className="flex items-center justify-between border-t pt-6">
           <div className="text-sm text-muted-foreground">
-            {periods.length} periods × {variables.length} variables = {periods.length * variables.length} values
+            {regularPeriods.length} periods × {regularVariables.length} variables {has2025 && `+ ${baselineVariables.length} baseline values`} = {regularPeriods.length * regularVariables.length + (has2025 ? baselineVariables.length : 0)} values
           </div>
 
           <Button type="submit" size="lg" disabled={setValueMutation.isPending}>

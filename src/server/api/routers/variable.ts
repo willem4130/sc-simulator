@@ -141,8 +141,9 @@ export const variableRouter = createTRPCRouter({
 
   /**
    * Set variable value for a scenario
+   * TODO: Change back to organizationProcedure once authentication is implemented
    */
-  setValue: organizationProcedure
+  setValue: publicProcedure
     .input(
       z.object({
         organizationId: z.string(),
