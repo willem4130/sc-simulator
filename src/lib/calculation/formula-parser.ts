@@ -27,6 +27,7 @@ const SUPPORTED_FUNCTIONS = [
   'CEILING',
   'FLOOR',
   'POW',
+  'SKU_LOOKUP',
 ] as const
 
 export class FormulaTokenizer {
