@@ -142,6 +142,7 @@ export const calculationRouter = createTRPCRouter({
       }))
 
       // Load input values for this scenario
+      // For the current period
       const dbInputValues = await ctx.db.variableValue.findMany({
         where: {
           scenarioId: input.scenarioId,
@@ -152,7 +153,33 @@ export const calculationRouter = createTRPCRouter({
         },
       })
 
-      const inputValues: VariableValueInput[] = dbInputValues.map((v) => ({
+      // Also load baseline INPUT values from the first period (2025-01-01)
+      // These are needed for OUTPUT percentage calculations in all years
+      const baselineInputValues = await ctx.db.variableValue.findMany({
+        where: {
+          scenarioId: input.scenarioId,
+          periodStart: scenario.startDate,
+          variable: {
+            name: {
+              startsWith: 'INPUT_BASELINE_',
+            },
+          },
+        },
+        include: {
+          variable: true,
+        },
+      })
+
+      // Combine both sets of values, with baseline values taking precedence if not already present
+      const allInputValues = [...dbInputValues]
+      for (const baselineValue of baselineInputValues) {
+        // Only add if not already present for current period
+        if (!allInputValues.some((v) => v.variableId === baselineValue.variableId)) {
+          allInputValues.push(baselineValue)
+        }
+      }
+
+      const inputValues: VariableValueInput[] = allInputValues.map((v) => ({
         variableId: v.variableId,
         variableName: v.variable.name,
         value: v.value,
